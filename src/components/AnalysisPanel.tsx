@@ -3,6 +3,31 @@
 import { useState } from "react";
 import type { Analysis } from "@/lib/types";
 
+/**
+ * Render a text string that may contain **bold** markdown markers.
+ * Splits on **...** and wraps matched portions in <strong>.
+ */
+function renderBold(text: string) {
+  const parts = text.split(/\*\*(.+?)\*\*/g);
+  // parts alternate: plain, bold, plain, bold, ...
+  return parts.map((part, i) =>
+    i % 2 === 1 ? <strong key={i} className="font-semibold">{part}</strong> : part
+  );
+}
+
+/**
+ * Strip leading number/bullet from AI text to avoid duplicate numbering.
+ * Handles: "1. Text", "**1. Text**", "**1.** Text", "1. **Text:**"
+ */
+function stripLeadingNumber(text: string): string {
+  // Strip leading number outside bold: "1. ..."
+  // Strip leading number inside bold: "**1. ..." or "**1.** ..."
+  return text
+    .replace(/^\*\*\d+\.\s*/, "**")   // "**1. Title:**" → "**Title:**"
+    .replace(/^\d+\.\s*/, "")          // "1. Title" → "Title"
+    .replace(/^\*\*\*\*\s*/, "");      // clean up empty "** **" if number was the only bold content
+}
+
 interface AnalysisPanelProps {
   dealId: string;
   existingAnalysis: Analysis | null;
@@ -144,7 +169,7 @@ export default function AnalysisPanel({
       {/* Health Assessment */}
       <div className="mb-5">
         <p className="text-sm text-gray-800 leading-relaxed">
-          {analysis!.health_assessment}
+          {renderBold(analysis!.health_assessment)}
         </p>
       </div>
 
@@ -179,7 +204,7 @@ export default function AnalysisPanel({
                 key={i}
                 className="text-sm text-gray-700 bg-red-50 rounded px-3 py-2"
               >
-                {signal}
+                {renderBold(signal)}
               </li>
             ))}
           </ul>
@@ -198,7 +223,7 @@ export default function AnalysisPanel({
                 key={i}
                 className="text-sm text-gray-700 bg-green-50 rounded px-3 py-2"
               >
-                {signal}
+                {renderBold(signal)}
               </li>
             ))}
           </ul>
@@ -217,8 +242,7 @@ export default function AnalysisPanel({
                 key={i}
                 className="text-sm text-gray-700 bg-blue-50 rounded px-3 py-2"
               >
-                <span className="font-medium text-blue-700 mr-1">{i + 1}.</span>
-                {suggestion}
+                {renderBold(stripLeadingNumber(suggestion))}
               </li>
             ))}
           </ol>
