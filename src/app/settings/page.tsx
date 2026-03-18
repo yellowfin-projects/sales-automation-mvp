@@ -9,6 +9,9 @@ export default function SettingsPage() {
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [totalDeals, setTotalDeals] = useState(0);
   const [totalActivities, setTotalActivities] = useState(0);
+  const [totalAnalyses, setTotalAnalyses] = useState(0);
+  const [totalInputTokens, setTotalInputTokens] = useState(0);
+  const [totalOutputTokens, setTotalOutputTokens] = useState(0);
 
   useEffect(() => {
     loadStats();
@@ -32,6 +35,21 @@ export default function SettingsPage() {
       .from("activities")
       .select("*", { count: "exact", head: true });
     setTotalActivities(activityCount || 0);
+
+    // AI usage stats
+    const { data: analysesData, count: analysisCount } = await supabase
+      .from("analyses")
+      .select("input_tokens, output_tokens", { count: "exact" });
+    setTotalAnalyses(analysisCount || 0);
+
+    if (analysesData) {
+      setTotalInputTokens(
+        analysesData.reduce((sum: number, a: { input_tokens: number }) => sum + (a.input_tokens || 0), 0)
+      );
+      setTotalOutputTokens(
+        analysesData.reduce((sum: number, a: { output_tokens: number }) => sum + (a.output_tokens || 0), 0)
+      );
+    }
   }
 
   return (
@@ -53,6 +71,33 @@ export default function SettingsPage() {
           <p className="text-2xl font-semibold text-gray-900">{uploads.length}</p>
         </div>
       </div>
+
+      {/* AI Usage */}
+      {totalAnalyses > 0 && (
+        <div>
+          <h2 className="text-sm font-medium text-gray-700 mb-3">AI Usage</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <p className="text-sm text-gray-500">Deals Analyzed</p>
+              <p className="text-2xl font-semibold text-gray-900">
+                {totalAnalyses}
+              </p>
+            </div>
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <p className="text-sm text-gray-500">Total Input Tokens</p>
+              <p className="text-2xl font-semibold text-gray-900">
+                {totalInputTokens.toLocaleString()}
+              </p>
+            </div>
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <p className="text-sm text-gray-500">Total Output Tokens</p>
+              <p className="text-2xl font-semibold text-gray-900">
+                {totalOutputTokens.toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CSV Upload */}
       <div>

@@ -5,7 +5,8 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { calculateDealMetrics } from "@/lib/metrics";
-import type { Deal, Activity, DealMetrics } from "@/lib/types";
+import AnalysisPanel from "@/components/AnalysisPanel";
+import type { Deal, Activity, Analysis, DealMetrics } from "@/lib/types";
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -67,6 +68,7 @@ export default function DealDetailPage() {
   const [deal, setDeal] = useState<Deal | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [metrics, setMetrics] = useState<DealMetrics | null>(null);
+  const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [expandedActivity, setExpandedActivity] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,8 +96,18 @@ export default function DealDetailPage() {
 
       if (actError) throw actError;
 
+      // Fetch most recent analysis if one exists
+      const { data: analysisData } = await supabase
+        .from("analyses")
+        .select("*")
+        .eq("deal_id", dealId)
+        .order("analyzed_at", { ascending: false })
+        .limit(1)
+        .single();
+
       setDeal(dealData as Deal);
       setActivities((activitiesData as Activity[]) || []);
+      setAnalysis(analysisData as Analysis | null);
       setMetrics(
         calculateDealMetrics(
           dealData as Deal,
@@ -217,12 +229,12 @@ export default function DealDetailPage() {
         </div>
       </div>
 
-      {/* AI Analysis placeholder — Phase 3 */}
-      <div className="bg-gray-50 rounded-lg border border-dashed border-gray-300 p-6 text-center">
-        <p className="text-sm text-gray-500">
-          AI Deal Analysis will be available in a future update.
-        </p>
-      </div>
+      {/* AI Analysis */}
+      <AnalysisPanel
+        dealId={deal.id}
+        existingAnalysis={analysis}
+        repProbability={deal.probability}
+      />
 
       {/* Activity Timeline */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
