@@ -264,19 +264,19 @@ export default function RepsPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
                         Opportunity
                       </th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
                         Stage
                       </th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
                         Amount
                       </th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
                         Close Date
                       </th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
                         Last Activity
                       </th>
                     </tr>
@@ -302,10 +302,10 @@ export default function RepsPage() {
                             {deal.stage}
                           </span>
                         </td>
-                        <td className="px-3 py-2 font-medium text-gray-700">
+                        <td className="px-3 py-2 font-medium text-gray-900">
                           {formatCurrency(deal.amount)}
                         </td>
-                        <td className="px-3 py-2 text-gray-700">
+                        <td className="px-3 py-2 text-gray-900">
                           <span
                             className={
                               deal.metrics.is_overdue

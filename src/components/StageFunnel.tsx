@@ -47,7 +47,7 @@ export default function StageFunnel({ data }: StageFunnelProps) {
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4">
-      <h3 className="text-sm font-medium text-gray-700 mb-4">Pipeline by Stage</h3>
+      <h3 className="text-sm font-semibold text-gray-800 mb-4">Pipeline by Stage</h3>
       <ResponsiveContainer width="100%" height={sorted.length * 50 + 20}>
         <BarChart data={sorted} layout="vertical" margin={{ left: 20, right: 20 }}>
           <XAxis type="number" hide />
@@ -72,7 +72,7 @@ export default function StageFunnel({ data }: StageFunnelProps) {
         </BarChart>
       </ResponsiveContainer>
       {/* Legend showing deal count per stage */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-gray-600">
         {sorted.map((s) => (
           <span key={s.stage}>
             {s.stage}: {s.count} deal{s.count !== 1 ? "s" : ""} ({formatCurrency(s.value)})

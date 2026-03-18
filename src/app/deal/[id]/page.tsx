@@ -185,7 +185,7 @@ export default function DealDetailPage() {
 
       {/* Metrics Panel */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-sm font-medium text-gray-700 mb-4">Deal Health Metrics</h2>
+        <h2 className="text-sm font-semibold text-gray-800 mb-4">Deal Health Metrics</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <MetricCard
             label="Days Since Activity"
@@ -238,7 +238,7 @@ export default function DealDetailPage() {
 
       {/* Activity Timeline */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-sm font-medium text-gray-700 mb-4">
+        <h2 className="text-sm font-semibold text-gray-800 mb-4">
           Activity Timeline ({activities.length} activities)
         </h2>
         <div className="space-y-2">
@@ -271,7 +271,7 @@ export default function DealDetailPage() {
                   >
                     {activity.activity_type || "Other"}
                   </span>
-                  <span className="text-sm text-gray-700 truncate flex-1">
+                  <span className="text-sm text-gray-900 truncate flex-1">
                     {activity.subject}
                   </span>
                   {hasComments && (
@@ -314,9 +314,9 @@ function MetricCard({
 }) {
   return (
     <div>
-      <p className="text-xs text-gray-500">{label}</p>
+      <p className="text-xs font-medium text-gray-600">{label}</p>
       <p className={`text-lg font-semibold mt-0.5 ${color}`}>{value}</p>
-      {subtitle && <p className="text-xs text-gray-400">{subtitle}</p>}
+      {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
     </div>
   );
 }

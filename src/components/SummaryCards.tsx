@@ -52,7 +52,7 @@ export default function SummaryCards({ metrics }: SummaryCardsProps) {
               : "border-gray-200 bg-white"
           }`}
         >
-          <p className="text-sm text-gray-500">{card.label}</p>
+          <p className="text-sm font-medium text-gray-600">{card.label}</p>
           <p
             className={`text-2xl font-semibold mt-1 ${
               card.highlight ? "text-red-600" : "text-gray-900"
@@ -60,7 +60,7 @@ export default function SummaryCards({ metrics }: SummaryCardsProps) {
           >
             {card.value}
           </p>
-          <p className="text-xs text-gray-400 mt-1">{card.subtitle}</p>
+          <p className="text-xs text-gray-500 mt-1">{card.subtitle}</p>
         </div>
       ))}
     </div>

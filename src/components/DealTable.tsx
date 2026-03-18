@@ -126,7 +126,7 @@ export default function DealTable({ deals }: DealTableProps) {
     const isActive = sortField === field;
     return (
       <th
-        className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-700 select-none"
+        className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase cursor-pointer hover:text-gray-900 select-none"
         onClick={() => handleSort(field)}
       >
         {label}
@@ -144,7 +144,7 @@ export default function DealTable({ deals }: DealTableProps) {
         <select
           value={stageFilter}
           onChange={(e) => setStageFilter(e.target.value)}
-          className="text-sm border border-gray-200 rounded px-2 py-1"
+          className="text-sm border border-gray-300 rounded px-2 py-1.5 bg-white text-gray-900"
         >
           <option value="all">All Stages</option>
           {stages.map((s) => (
@@ -156,7 +156,7 @@ export default function DealTable({ deals }: DealTableProps) {
         <select
           value={ownerFilter}
           onChange={(e) => setOwnerFilter(e.target.value)}
-          className="text-sm border border-gray-200 rounded px-2 py-1"
+          className="text-sm border border-gray-300 rounded px-2 py-1.5 bg-white text-gray-900"
         >
           <option value="all">All Reps</option>
           {owners.map((o) => (
@@ -188,7 +188,7 @@ export default function DealTable({ deals }: DealTableProps) {
           <tbody className="divide-y divide-gray-100">
             {filteredDeals.map((deal) => (
               <tr key={deal.id} className="hover:bg-gray-50">
-                <td className="px-3 py-2 text-gray-700">{deal.account_name}</td>
+                <td className="px-3 py-2 text-gray-900">{deal.account_name}</td>
                 <td className="px-3 py-2">
                   <Link
                     href={`/deal/${deal.id}`}
@@ -204,7 +204,7 @@ export default function DealTable({ deals }: DealTableProps) {
                     {deal.stage}
                   </span>
                 </td>
-                <td className="px-3 py-2 text-gray-700 font-medium">
+                <td className="px-3 py-2 text-gray-900 font-medium">
                   {formatCurrency(deal.amount)}
                 </td>
                 <td className="px-3 py-2 text-gray-700">
@@ -213,7 +213,7 @@ export default function DealTable({ deals }: DealTableProps) {
                     {deal.metrics.is_overdue && " (overdue)"}
                   </span>
                 </td>
-                <td className="px-3 py-2 text-gray-700">{deal.owner}</td>
+                <td className="px-3 py-2 text-gray-900">{deal.owner}</td>
                 <td className="px-3 py-2">
                   <span
                     className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${stalenessColor(deal.metrics.days_since_last_activity)}`}

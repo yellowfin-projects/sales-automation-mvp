@@ -117,25 +117,25 @@ export default function SettingsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
                     Date
                   </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
                     Filename
                   </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
                     Rows
                   </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
                     New Activities
                   </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
                     Duplicates Skipped
                   </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
                     Deals Created
                   </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
                     Deals Updated
                   </th>
                 </tr>
@@ -143,7 +143,7 @@ export default function SettingsPage() {
               <tbody className="divide-y divide-gray-100">
                 {uploads.map((upload) => (
                   <tr key={upload.id}>
-                    <td className="px-3 py-2 text-gray-700">
+                    <td className="px-3 py-2 text-gray-900">
                       {new Date(upload.uploaded_at).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
@@ -155,17 +155,17 @@ export default function SettingsPage() {
                     <td className="px-3 py-2 text-gray-700 font-mono text-xs">
                       {upload.filename}
                     </td>
-                    <td className="px-3 py-2 text-gray-700">{upload.row_count}</td>
-                    <td className="px-3 py-2 text-gray-700">
+                    <td className="px-3 py-2 text-gray-900">{upload.row_count}</td>
+                    <td className="px-3 py-2 text-gray-900">
                       {upload.new_activities_added}
                     </td>
-                    <td className="px-3 py-2 text-gray-700">
+                    <td className="px-3 py-2 text-gray-900">
                       {upload.duplicate_activities_skipped}
                     </td>
-                    <td className="px-3 py-2 text-gray-700">
+                    <td className="px-3 py-2 text-gray-900">
                       {upload.deals_created}
                     </td>
-                    <td className="px-3 py-2 text-gray-700">
+                    <td className="px-3 py-2 text-gray-900">
                       {upload.deals_updated}
                     </td>
                   </tr>
