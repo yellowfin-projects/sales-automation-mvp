@@ -6,7 +6,8 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { calculateDealMetrics } from "@/lib/metrics";
 import AnalysisPanel from "@/components/AnalysisPanel";
-import type { Deal, Activity, Analysis, DealMetrics } from "@/lib/types";
+import DealHistoryTimeline from "@/components/DealHistoryTimeline";
+import type { Deal, Activity, Analysis, DealHistory, DealMetrics } from "@/lib/types";
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -69,6 +70,7 @@ export default function DealDetailPage() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [metrics, setMetrics] = useState<DealMetrics | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [history, setHistory] = useState<DealHistory[]>([]);
   const [expandedActivity, setExpandedActivity] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -105,9 +107,17 @@ export default function DealDetailPage() {
         .limit(1)
         .single();
 
+      // Fetch deal change history
+      const { data: historyData } = await supabase
+        .from("deal_history")
+        .select("*")
+        .eq("deal_id", dealId)
+        .order("changed_at", { ascending: false });
+
       setDeal(dealData as Deal);
       setActivities((activitiesData as Activity[]) || []);
       setAnalysis(analysisData as Analysis | null);
+      setHistory((historyData as DealHistory[]) || []);
       setMetrics(
         calculateDealMetrics(
           dealData as Deal,
@@ -228,6 +238,9 @@ export default function DealDetailPage() {
           />
         </div>
       </div>
+
+      {/* Week-over-Week Changes */}
+      <DealHistoryTimeline history={history} />
 
       {/* AI Analysis */}
       <AnalysisPanel
