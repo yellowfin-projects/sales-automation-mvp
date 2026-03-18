@@ -1,0 +1,135 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import CsvUploader from "@/components/CsvUploader";
+import type { Upload } from "@/lib/types";
+
+export default function SettingsPage() {
+  const [uploads, setUploads] = useState<Upload[]>([]);
+  const [totalDeals, setTotalDeals] = useState(0);
+  const [totalActivities, setTotalActivities] = useState(0);
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  async function loadStats() {
+    // Get upload history
+    const { data: uploadsData } = await supabase
+      .from("uploads")
+      .select("*")
+      .order("uploaded_at", { ascending: false });
+    setUploads((uploadsData as Upload[]) || []);
+
+    // Get total counts
+    const { count: dealCount } = await supabase
+      .from("deals")
+      .select("*", { count: "exact", head: true });
+    setTotalDeals(dealCount || 0);
+
+    const { count: activityCount } = await supabase
+      .from("activities")
+      .select("*", { count: "exact", head: true });
+    setTotalActivities(activityCount || 0);
+  }
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-xl font-semibold text-gray-900">Settings</h1>
+
+      {/* Data summary */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <p className="text-sm text-gray-500">Total Deals</p>
+          <p className="text-2xl font-semibold text-gray-900">{totalDeals}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <p className="text-sm text-gray-500">Total Activities</p>
+          <p className="text-2xl font-semibold text-gray-900">{totalActivities}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <p className="text-sm text-gray-500">Uploads</p>
+          <p className="text-2xl font-semibold text-gray-900">{uploads.length}</p>
+        </div>
+      </div>
+
+      {/* CSV Upload */}
+      <div>
+        <h2 className="text-sm font-medium text-gray-700 mb-3">
+          Upload Salesforce CSV
+        </h2>
+        <CsvUploader onUploadComplete={loadStats} />
+      </div>
+
+      {/* Upload History */}
+      {uploads.length > 0 && (
+        <div>
+          <h2 className="text-sm font-medium text-gray-700 mb-3">
+            Upload History
+          </h2>
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                    Date
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                    Filename
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                    Rows
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                    New Activities
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                    Duplicates Skipped
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                    Deals Created
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                    Deals Updated
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {uploads.map((upload) => (
+                  <tr key={upload.id}>
+                    <td className="px-3 py-2 text-gray-700">
+                      {new Date(upload.uploaded_at).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </td>
+                    <td className="px-3 py-2 text-gray-700 font-mono text-xs">
+                      {upload.filename}
+                    </td>
+                    <td className="px-3 py-2 text-gray-700">{upload.row_count}</td>
+                    <td className="px-3 py-2 text-gray-700">
+                      {upload.new_activities_added}
+                    </td>
+                    <td className="px-3 py-2 text-gray-700">
+                      {upload.duplicate_activities_skipped}
+                    </td>
+                    <td className="px-3 py-2 text-gray-700">
+                      {upload.deals_created}
+                    </td>
+                    <td className="px-3 py-2 text-gray-700">
+                      {upload.deals_updated}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
