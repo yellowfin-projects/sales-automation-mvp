@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import SignOutButton from "@/components/SignOutButton";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -55,6 +56,7 @@ export default function RootLayout({
                 </Link>
               </div>
             </div>
+            <SignOutButton />
           </div>
         </nav>
         <main className="max-w-7xl mx-auto px-6 py-6">{children}</main>
