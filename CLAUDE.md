@@ -14,15 +14,19 @@ This is the MVP version. The full plan is at `../Sales_Automation_Plan.md` and t
 - **AI:** Google Gemini 2.5 Flash via `@google/generative-ai` SDK
 - **Charts:** Recharts
 - **CSV Parsing:** Papa Parse
-- **Hosting:** Vercel (not yet deployed)
+- **Testing:** Vitest
+- **CI:** GitHub Actions
+- **Hosting:** Vercel
 
 ## Commands
 
 ```bash
-npm run dev     # Start dev server on localhost:3000
-npm run build   # Production build
-npm run lint    # Run ESLint
-npx tsc --noEmit  # Type-check without emitting
+npm run dev        # Start dev server on localhost:3000
+npm run build      # Production build
+npm run lint       # Run ESLint
+npm run typecheck  # Type-check without emitting
+npm test           # Run all tests once
+npm run test:watch # Run tests in watch mode during development
 ```
 
 ## Architecture
@@ -30,7 +34,7 @@ npx tsc --noEmit  # Type-check without emitting
 - All pages are client components (`"use client"`) that query Supabase directly
 - The only server-side code is `src/app/api/analyze-deal/route.ts` — this calls Gemini so the API key stays server-side
 - CSV processing happens client-side (Papa Parse) with data inserted into Supabase via the JS client
-- No auth yet (Phase 4)
+- Auth via Supabase (email/password) with middleware protecting all routes except `/login`
 
 ## Key Design Decisions
 
@@ -65,9 +69,25 @@ The Salesforce report export has one row per activity (email/call) with deal met
 - `uploads` — audit trail of CSV uploads with counts
 - `deal_history` — tracks field changes between uploads
 
+## Testing
+
+- **Framework:** Vitest with `vitest.config.ts` (path alias `@/` configured)
+- **Test location:** `src/lib/__tests__/` — co-located with the code they test
+- **CI:** GitHub Actions runs `typecheck` + `test` on every push/PR to `main`
+
+### Testing expectations
+
+- When adding or modifying logic in `src/lib/`, add or update corresponding tests
+- Run `npm test` before committing to catch regressions
+- Tests should not depend on Supabase or external services — test pure logic only
+- Use `vi.useFakeTimers()` for anything date-dependent
+
+### Current test coverage
+
+- `csv-parser.test.ts` — date parsing, number parsing
+- `metrics.test.ts` — deal metrics, pipeline aggregation, stakeholder extraction
+
 ## What's Not Built Yet
 
-- Auth (Phase 4) — currently open access
-- Vercel deployment
 - Mobile layout polish
 - Deals at risk callout section on Pipeline Overview
