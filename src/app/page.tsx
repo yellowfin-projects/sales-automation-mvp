@@ -6,6 +6,7 @@ import { calculateDealMetrics, calculatePipelineMetrics } from "@/lib/metrics";
 import SummaryCards from "@/components/SummaryCards";
 import StageFunnel from "@/components/StageFunnel";
 import DealTable from "@/components/DealTable";
+import DealsAtRisk from "@/components/DealsAtRisk";
 import type { Deal, Activity, DealWithMetrics, PipelineMetrics } from "@/lib/types";
 
 export default function PipelineOverview() {
@@ -128,8 +129,10 @@ export default function PipelineOverview() {
         <StageFunnel data={pipelineMetrics.deals_by_stage} />
       )}
 
+      <DealsAtRisk deals={deals} />
+
       <div>
-        <h2 className="text-sm font-medium text-gray-700 mb-3">All Deals</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">All Deals</h2>
         <DealTable deals={deals} />
       </div>
     </div>
