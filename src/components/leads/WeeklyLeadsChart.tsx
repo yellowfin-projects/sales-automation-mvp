@@ -53,6 +53,7 @@ export default function WeeklyLeadsChart({ title, data }: WeeklyLeadsChartProps)
                 // above the full stack using the total/AMER ratio.
                 if (index == null || x == null || y == null || width == null || height == null) return null;
                 const entry = data[index];
+                if (!entry) return null;
                 const amerVal = entry.AMER;
                 if (amerVal === 0 || Number(height) === 0) return null;
                 // Pixels per unit = AMER bar height / AMER value
