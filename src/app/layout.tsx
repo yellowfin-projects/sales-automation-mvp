@@ -49,6 +49,12 @@ export default function RootLayout({
                   Reps
                 </Link>
                 <Link
+                  href="/leads"
+                  className="text-gray-600 hover:text-gray-900"
+                >
+                  Leads
+                </Link>
+                <Link
                   href="/settings"
                   className="text-gray-600 hover:text-gray-900"
                 >

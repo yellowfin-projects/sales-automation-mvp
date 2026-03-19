@@ -114,3 +114,61 @@ create index if not exists activities_deal_id_idx on activities (deal_id);
 create index if not exists activities_date_idx on activities (activity_date);
 create index if not exists deal_history_deal_id_idx on deal_history (deal_id);
 create index if not exists analyses_deal_id_idx on analyses (deal_id);
+
+-- ============================================
+-- LEAD SYNCS TABLE
+-- Audit trail for Gmail lead report syncs
+-- ============================================
+create table if not exists lead_syncs (
+  id uuid primary key default gen_random_uuid(),
+  email_subject text,
+  email_date timestamptz,
+  rows_in_csv integer default 0,
+  leads_imported integer default 0,
+  leads_skipped integer default 0,
+  synced_at timestamptz default now()
+);
+
+-- ============================================
+-- LEADS TABLE
+-- One row per lead from the Salesforce lead report
+-- ============================================
+create table if not exists leads (
+  id uuid primary key default gen_random_uuid(),
+  company text default '',
+  full_name text default '',
+  email text not null,
+  phone text default '',
+  country text default '',
+  lead_type text default '',
+  lead_status text default '',
+  sales_qualified integer default 0,
+  power_of_one integer default 0,
+  region text default '',
+  download_date timestamptz,
+  medium text default 'Unknown',
+  lead_week_start date not null,
+  is_converted boolean default false,
+  sync_id uuid references lead_syncs(id) on delete set null,
+  created_at timestamptz default now()
+);
+
+-- Deduplication: one lead per email per week
+create unique index if not exists leads_dedup_idx
+  on leads (email, lead_week_start);
+
+-- ============================================
+-- RLS for lead tables
+-- ============================================
+alter table lead_syncs enable row level security;
+alter table leads enable row level security;
+
+create policy "Allow all access to lead_syncs" on lead_syncs for all using (true) with check (true);
+create policy "Allow all access to leads" on leads for all using (true) with check (true);
+
+-- ============================================
+-- INDEXES for lead query patterns
+-- ============================================
+create index if not exists leads_sync_id_idx on leads (sync_id);
+create index if not exists leads_region_idx on leads (region);
+create index if not exists leads_week_start_idx on leads (lead_week_start);
