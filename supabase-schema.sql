@@ -126,6 +126,7 @@ create table if not exists lead_syncs (
   rows_in_csv integer default 0,
   leads_imported integer default 0,
   leads_skipped integer default 0,
+  trigger_source text default 'manual',  -- 'manual' | 'cron'
   synced_at timestamptz default now()
 );
 
@@ -150,7 +151,9 @@ create table if not exists leads (
   lead_week_start date not null,
   is_converted boolean default false,
   sync_id uuid references lead_syncs(id) on delete set null,
-  created_at timestamptz default now()
+  quarter text not null default '',        -- e.g., "2026-Q1" for quarterly retention
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()     -- tracks when lead status last changed
 );
 
 -- Deduplication: one lead per email per week
@@ -172,3 +175,4 @@ create policy "Allow all access to leads" on leads for all using (true) with che
 create index if not exists leads_sync_id_idx on leads (sync_id);
 create index if not exists leads_region_idx on leads (region);
 create index if not exists leads_week_start_idx on leads (lead_week_start);
+create index if not exists leads_quarter_idx on leads (quarter);

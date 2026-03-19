@@ -162,7 +162,7 @@ export default function LeadsPage() {
       }
 
       setSyncResult(
-        `Imported ${json.leads_imported} leads, ${json.leads_skipped} skipped`
+        `Processed ${json.leads_processed} leads (${json.rows_in_csv} in CSV)`
       );
       // Reload data
       await loadLeads();

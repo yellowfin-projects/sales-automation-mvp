@@ -31,7 +31,9 @@ function makeLead(overrides: Partial<Lead> = {}): Lead {
     lead_week_start: "2026-03-08",
     is_converted: false,
     sync_id: null,
+    quarter: "2026-Q1",
     created_at: "2026-03-10T00:00:00Z",
+    updated_at: "2026-03-10T00:00:00Z",
     ...overrides,
   };
 }

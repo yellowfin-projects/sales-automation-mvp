@@ -17,7 +17,9 @@ export interface Lead {
   lead_week_start: string; // ISO date (Sunday of the week)
   is_converted: boolean;
   sync_id: string | null;
+  quarter: string;          // "2026-Q1" — fiscal quarter derived from download date
   created_at: string;
+  updated_at: string;       // last time this row was upserted (status may have changed)
 }
 
 export interface LeadSync {
@@ -27,6 +29,7 @@ export interface LeadSync {
   rows_in_csv: number;
   leads_imported: number;
   leads_skipped: number;
+  trigger_source: string;   // "manual" | "cron"
   synced_at: string;
 }
 

@@ -6,6 +6,9 @@ import Papa from "papaparse";
 import { getWeekStart } from "@/lib/lead-metrics";
 import { createHash } from "crypto";
 
+// Extend Vercel timeout from 10s to 60s (supported on Hobby plan)
+export const maxDuration = 60;
+
 // Service-level Supabase client for API routes
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseKey =
@@ -78,7 +81,20 @@ function generatePlaceholderEmail(row: LeadCsvRow): string {
   return `_no_email_${hash}`;
 }
 
-export async function POST() {
+/**
+ * Derive the quarter string (e.g., "2026-Q1") from a date.
+ */
+function getQuarter(date: Date): string {
+  const year = date.getFullYear();
+  const quarter = Math.floor(date.getMonth() / 3) + 1;
+  return `${year}-Q${quarter}`;
+}
+
+/**
+ * Shared sync logic used by both the manual POST handler and the cron GET handler.
+ * Connects to Gmail, finds the latest lead report, parses the CSV, and upserts into Supabase.
+ */
+async function performSync(triggerSource: "manual" | "cron"): Promise<NextResponse> {
   try {
     // Validate env vars
     if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
@@ -186,8 +202,9 @@ export async function POST() {
         email_subject: emailSubject,
         email_date: emailDate?.toISOString() || null,
         rows_in_csv: rows.length,
-        leads_imported: 0, // updated after upsert
+        leads_imported: 0,
         leads_skipped: 0,
+        trigger_source: triggerSource,
       })
       .select()
       .single();
@@ -223,15 +240,19 @@ export async function POST() {
         lead_week_start: weekStart,
         is_converted: CONVERTED_STATUSES.includes(status.toLowerCase()),
         sync_id: syncRecord.id,
+        quarter: getQuarter(downloadDateObj),
+        updated_at: new Date().toISOString(),
       };
     });
 
     // 6. Single batch upsert — dedup on (email, lead_week_start)
+    //    ignoreDuplicates: false → ON CONFLICT DO UPDATE
+    //    This ensures status changes (e.g., "New" → "Converted") are captured
     const { data: upsertResult, error: upsertError } = await supabase
       .from("leads")
       .upsert(leadsToUpsert, {
         onConflict: "email,lead_week_start",
-        ignoreDuplicates: true,
+        ignoreDuplicates: false,
       })
       .select("id");
 
@@ -242,21 +263,20 @@ export async function POST() {
       );
     }
 
-    const imported = upsertResult?.length || 0;
-    const skipped = rows.length - imported;
+    const processed = upsertResult?.length || 0;
 
     // 7. Update sync record with final counts
     await supabase
       .from("lead_syncs")
-      .update({ leads_imported: imported, leads_skipped: skipped })
+      .update({ leads_imported: processed, leads_skipped: rows.length - processed })
       .eq("id", syncRecord.id);
 
     return NextResponse.json({
       success: true,
       sync_id: syncRecord.id,
       rows_in_csv: rows.length,
-      leads_imported: imported,
-      leads_skipped: skipped,
+      leads_processed: processed,
+      trigger_source: triggerSource,
       email_subject: emailSubject,
       email_date: emailDate?.toISOString() || null,
     });
@@ -264,4 +284,23 @@ export async function POST() {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+/**
+ * POST — Manual sync triggered by the "Sync Leads" button in the UI.
+ */
+export async function POST() {
+  return performSync("manual");
+}
+
+/**
+ * GET — Cron sync triggered by Vercel's cron scheduler.
+ * Requires CRON_SECRET for authentication.
+ */
+export async function GET(request: Request) {
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return performSync("cron");
 }
