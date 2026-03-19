@@ -42,6 +42,20 @@ npm run test:watch # Run tests in watch mode during development
 - **On-demand AI only:** Gemini is never called automatically. The user clicks "Analyze Deal" with a confirmation step. Results are cached in the `analyses` table.
 - **Computed metrics over AI:** Deal health signals (staleness, activity trend, stakeholder count, overdue status) are calculated from data — no AI needed. AI is reserved for qualitative coaching insights.
 
+## UI Standards
+
+### Filters
+
+All filters must use multi-select checkbox dropdowns, never single-select `<select>` elements. This allows users to view any combination of values (e.g., all stages except Closed Lost).
+
+Pattern for building a multi-select filter:
+- A button showing the current label ("All Stages", "3 Stages", or the single selected value)
+- A dropdown with checkboxes for each option, plus "Select all" / "Clear all" links at the top
+- A fixed invisible overlay behind the dropdown to close it when clicking outside
+- State stored as a `Set<string>` with toggle/selectAll/clearAll helper functions
+
+See `DealTable.tsx` (stage and rep filters) and `reps/page.tsx` (stage and rep filters) for reference implementations.
+
 ## Data Flow
 
 1. User uploads Salesforce CSV on `/settings`
@@ -90,4 +104,3 @@ The Salesforce report export has one row per activity (email/call) with deal met
 ## What's Not Built Yet
 
 - Mobile layout polish
-- Deals at risk callout section on Pipeline Overview

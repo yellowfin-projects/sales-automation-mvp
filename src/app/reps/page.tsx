@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { calculateDealMetrics } from "@/lib/metrics";
@@ -47,10 +47,152 @@ interface RepSummary {
 }
 
 export default function RepsPage() {
-  const [reps, setReps] = useState<RepSummary[]>([]);
+  const [allDeals, setAllDeals] = useState<DealWithMetrics[]>([]);
   const [expandedRep, setExpandedRep] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [stageDropdownOpen, setStageDropdownOpen] = useState(false);
+  const [repDropdownOpen, setRepDropdownOpen] = useState(false);
+
+  // Get unique stages and owners from all deals
+  const stages = useMemo(
+    () => [...new Set(allDeals.map((d) => d.stage))].sort(),
+    [allDeals]
+  );
+  const owners = useMemo(
+    () => [...new Set(allDeals.map((d) => d.owner))].sort(),
+    [allDeals]
+  );
+
+  // Default: all stages except closed
+  const [selectedStages, setSelectedStages] = useState<Set<string> | null>(null);
+
+  // Initialize selected stages once data loads (exclude closed by default)
+  const activeSelectedStages = useMemo(() => {
+    if (selectedStages !== null) return selectedStages;
+    return new Set(stages.filter((s) => !s.toLowerCase().includes("closed")));
+  }, [selectedStages, stages]);
+
+  function toggleStage(stage: string) {
+    setSelectedStages((prev) => {
+      const base = prev ?? activeSelectedStages;
+      const next = new Set(base);
+      if (next.has(stage)) {
+        next.delete(stage);
+      } else {
+        next.add(stage);
+      }
+      return next;
+    });
+  }
+
+  function selectAllStages() {
+    setSelectedStages(new Set(stages));
+  }
+
+  function clearAllStages() {
+    setSelectedStages(new Set());
+  }
+
+  const allStagesSelected = activeSelectedStages.size === stages.length;
+  const stageFilterLabel =
+    allStagesSelected
+      ? "All Stages"
+      : activeSelectedStages.size === 0
+      ? "No Stages"
+      : activeSelectedStages.size === 1
+      ? [...activeSelectedStages][0]
+      : `${activeSelectedStages.size} Stages`;
+
+  // Rep multi-select — all selected by default
+  const [selectedReps, setSelectedReps] = useState<Set<string> | null>(null);
+
+  const activeSelectedReps = useMemo(() => {
+    if (selectedReps !== null) return selectedReps;
+    return new Set(owners);
+  }, [selectedReps, owners]);
+
+  function toggleRep(rep: string) {
+    setSelectedReps((prev) => {
+      const base = prev ?? activeSelectedReps;
+      const next = new Set(base);
+      if (next.has(rep)) {
+        next.delete(rep);
+      } else {
+        next.add(rep);
+      }
+      return next;
+    });
+  }
+
+  function selectAllReps() {
+    setSelectedReps(new Set(owners));
+  }
+
+  function clearAllReps() {
+    setSelectedReps(new Set());
+  }
+
+  const allRepsSelected = activeSelectedReps.size === owners.length;
+  const repFilterLabel =
+    allRepsSelected
+      ? "All Reps"
+      : activeSelectedReps.size === 0
+      ? "No Reps"
+      : activeSelectedReps.size === 1
+      ? [...activeSelectedReps][0]
+      : `${activeSelectedReps.size} Reps`;
+
+  // Filter deals and group by rep
+  const reps = useMemo(() => {
+    const filtered = allDeals.filter(
+      (d) => activeSelectedStages.has(d.stage) && activeSelectedReps.has(d.owner)
+    );
+
+    const repMap = new Map<string, DealWithMetrics[]>();
+    for (const deal of filtered) {
+      const existing = repMap.get(deal.owner) || [];
+      existing.push(deal);
+      repMap.set(deal.owner, existing);
+    }
+
+    return Array.from(repMap.entries())
+      .map(([name, deals]) => {
+        const totalValue = deals.reduce((sum, d) => sum + d.amount, 0);
+        const weightedValue = deals.reduce(
+          (sum, d) => sum + d.amount * (d.probability / 100),
+          0
+        );
+        const dealsAtRisk = deals.filter(
+          (d) =>
+            d.metrics.days_since_last_activity > 14 || d.metrics.is_overdue
+        ).length;
+        const avgDaysSinceActivity =
+          deals.length > 0
+            ? Math.round(
+                deals.reduce(
+                  (sum, d) => sum + d.metrics.days_since_last_activity,
+                  0
+                ) / deals.length
+              )
+            : 0;
+
+        return {
+          name,
+          dealCount: deals.length,
+          totalValue,
+          weightedValue,
+          dealsAtRisk,
+          avgDaysSinceActivity,
+          deals: [...deals].sort(
+            (a, b) =>
+              b.metrics.days_since_last_activity -
+              a.metrics.days_since_last_activity
+          ),
+        };
+      })
+      .sort((a, b) => b.totalValue - a.totalValue);
+  }, [allDeals, activeSelectedStages, activeSelectedReps]);
 
   useEffect(() => {
     loadData();
@@ -98,56 +240,7 @@ export default function RepsPage() {
         })
       );
 
-      // Group by rep — only open deals
-      const openDeals = dealsWithMetrics.filter(
-        (d) => !d.stage.toLowerCase().includes("closed")
-      );
-
-      const repMap = new Map<string, DealWithMetrics[]>();
-      for (const deal of openDeals) {
-        const existing = repMap.get(deal.owner) || [];
-        existing.push(deal);
-        repMap.set(deal.owner, existing);
-      }
-
-      const repSummaries: RepSummary[] = Array.from(repMap.entries())
-        .map(([name, deals]) => {
-          const totalValue = deals.reduce((sum, d) => sum + d.amount, 0);
-          const weightedValue = deals.reduce(
-            (sum, d) => sum + d.amount * (d.probability / 100),
-            0
-          );
-          const dealsAtRisk = deals.filter(
-            (d) =>
-              d.metrics.days_since_last_activity > 14 || d.metrics.is_overdue
-          ).length;
-          const avgDaysSinceActivity =
-            deals.length > 0
-              ? Math.round(
-                  deals.reduce(
-                    (sum, d) => sum + d.metrics.days_since_last_activity,
-                    0
-                  ) / deals.length
-                )
-              : 0;
-
-          return {
-            name,
-            dealCount: deals.length,
-            totalValue,
-            weightedValue,
-            dealsAtRisk,
-            avgDaysSinceActivity,
-            deals: deals.sort(
-              (a, b) =>
-                b.metrics.days_since_last_activity -
-                a.metrics.days_since_last_activity
-            ),
-          };
-        })
-        .sort((a, b) => b.totalValue - a.totalValue);
-
-      setReps(repSummaries);
+      setAllDeals(dealsWithMetrics);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
     } finally {
@@ -185,7 +278,109 @@ export default function RepsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-gray-900">Rep View</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-gray-900">Rep View</h1>
+
+        <div className="flex gap-3">
+        {/* Stage Filter */}
+        <div className="relative">
+          <button
+            onClick={() => setStageDropdownOpen(!stageDropdownOpen)}
+            className="text-sm border border-gray-300 rounded px-2 py-1.5 bg-white text-gray-900 flex items-center gap-1 min-w-[130px]"
+          >
+            <span className="flex-1 text-left">{stageFilterLabel}</span>
+            <span className="text-xs text-gray-400">{stageDropdownOpen ? "\u25B2" : "\u25BC"}</span>
+          </button>
+          {stageDropdownOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setStageDropdownOpen(false)}
+              />
+              <div className="absolute right-0 z-20 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[220px]">
+                <div className="flex gap-2 px-3 py-1.5 border-b border-gray-100">
+                  <button
+                    onClick={selectAllStages}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    Select all
+                  </button>
+                  <button
+                    onClick={clearAllStages}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    Clear all
+                  </button>
+                </div>
+                {stages.map((stage) => (
+                  <label
+                    key={stage}
+                    className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={activeSelectedStages.has(stage)}
+                      onChange={() => toggleStage(stage)}
+                      className="rounded border-gray-300"
+                    />
+                    <span className="text-sm text-gray-900">{stage}</span>
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Rep Filter */}
+        <div className="relative">
+          <button
+            onClick={() => setRepDropdownOpen(!repDropdownOpen)}
+            className="text-sm border border-gray-300 rounded px-2 py-1.5 bg-white text-gray-900 flex items-center gap-1 min-w-[130px]"
+          >
+            <span className="flex-1 text-left">{repFilterLabel}</span>
+            <span className="text-xs text-gray-400">{repDropdownOpen ? "\u25B2" : "\u25BC"}</span>
+          </button>
+          {repDropdownOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setRepDropdownOpen(false)}
+              />
+              <div className="absolute right-0 z-20 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[220px]">
+                <div className="flex gap-2 px-3 py-1.5 border-b border-gray-100">
+                  <button
+                    onClick={selectAllReps}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    Select all
+                  </button>
+                  <button
+                    onClick={clearAllReps}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    Clear all
+                  </button>
+                </div>
+                {owners.map((owner) => (
+                  <label
+                    key={owner}
+                    className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={activeSelectedReps.has(owner)}
+                      onChange={() => toggleRep(owner)}
+                      className="rounded border-gray-300"
+                    />
+                    <span className="text-sm text-gray-900">{owner}</span>
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+        </div>
+      </div>
 
       {/* Rep Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

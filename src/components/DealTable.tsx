@@ -56,8 +56,8 @@ function stageColor(stage: string): string {
 export default function DealTable({ deals }: DealTableProps) {
   const [sortField, setSortField] = useState<SortField>("days_since_last_activity");
   const [sortDir, setSortDir] = useState<SortDirection>("desc");
-  const [stageFilter, setStageFilter] = useState<string>("all");
-  const [ownerFilter, setOwnerFilter] = useState<string>("all");
+  const [stageDropdownOpen, setStageDropdownOpen] = useState(false);
+  const [ownerDropdownOpen, setOwnerDropdownOpen] = useState(false);
 
   // Get unique stages and owners for filter dropdowns
   const stages = useMemo(
@@ -69,14 +69,84 @@ export default function DealTable({ deals }: DealTableProps) {
     [deals]
   );
 
+  // All stages selected by default
+  const [selectedStages, setSelectedStages] = useState<Set<string>>(
+    () => new Set(stages)
+  );
+
+  function toggleStage(stage: string) {
+    setSelectedStages((prev) => {
+      const next = new Set(prev);
+      if (next.has(stage)) {
+        next.delete(stage);
+      } else {
+        next.add(stage);
+      }
+      return next;
+    });
+  }
+
+  function selectAllStages() {
+    setSelectedStages(new Set(stages));
+  }
+
+  function clearAllStages() {
+    setSelectedStages(new Set());
+  }
+
+  const allStagesSelected = selectedStages.size === stages.length;
+  const stageFilterLabel =
+    allStagesSelected
+      ? "All Stages"
+      : selectedStages.size === 0
+      ? "No Stages"
+      : selectedStages.size === 1
+      ? [...selectedStages][0]
+      : `${selectedStages.size} Stages`;
+
+  // All owners selected by default
+  const [selectedOwners, setSelectedOwners] = useState<Set<string>>(
+    () => new Set(owners)
+  );
+
+  function toggleOwner(owner: string) {
+    setSelectedOwners((prev) => {
+      const next = new Set(prev);
+      if (next.has(owner)) {
+        next.delete(owner);
+      } else {
+        next.add(owner);
+      }
+      return next;
+    });
+  }
+
+  function selectAllOwners() {
+    setSelectedOwners(new Set(owners));
+  }
+
+  function clearAllOwners() {
+    setSelectedOwners(new Set());
+  }
+
+  const allOwnersSelected = selectedOwners.size === owners.length;
+  const ownerFilterLabel =
+    allOwnersSelected
+      ? "All Reps"
+      : selectedOwners.size === 0
+      ? "No Reps"
+      : selectedOwners.size === 1
+      ? [...selectedOwners][0]
+      : `${selectedOwners.size} Reps`;
+
   // Filter and sort
   const filteredDeals = useMemo(() => {
     let filtered = deals;
-    if (stageFilter !== "all") {
-      filtered = filtered.filter((d) => d.stage === stageFilter);
+    if (!allStagesSelected) {
+      filtered = filtered.filter((d) => selectedStages.has(d.stage));
     }
-    if (ownerFilter !== "all") {
-      filtered = filtered.filter((d) => d.owner === ownerFilter);
+    if (!allOwnersSelected) {
+      filtered = filtered.filter((d) => selectedOwners.has(d.owner));
     }
 
     return [...filtered].sort((a, b) => {
@@ -111,7 +181,7 @@ export default function DealTable({ deals }: DealTableProps) {
       const comparison = String(aVal).localeCompare(String(bVal));
       return sortDir === "asc" ? comparison : -comparison;
     });
-  }, [deals, sortField, sortDir, stageFilter, ownerFilter]);
+  }, [deals, sortField, sortDir, selectedStages, allStagesSelected, selectedOwners, allOwnersSelected]);
 
   function handleSort(field: SortField) {
     if (sortField === field) {
@@ -141,30 +211,103 @@ export default function DealTable({ deals }: DealTableProps) {
     <div className="bg-white rounded-lg border border-gray-200">
       {/* Filters */}
       <div className="flex flex-wrap gap-3 p-3 border-b border-gray-100">
-        <select
-          value={stageFilter}
-          onChange={(e) => setStageFilter(e.target.value)}
-          className="text-sm border border-gray-300 rounded px-2 py-1.5 bg-white text-gray-900"
-        >
-          <option value="all">All Stages</option>
-          {stages.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-        <select
-          value={ownerFilter}
-          onChange={(e) => setOwnerFilter(e.target.value)}
-          className="text-sm border border-gray-300 rounded px-2 py-1.5 bg-white text-gray-900"
-        >
-          <option value="all">All Reps</option>
-          {owners.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
+        {/* Multi-select stage filter */}
+        <div className="relative">
+          <button
+            onClick={() => setStageDropdownOpen(!stageDropdownOpen)}
+            className="text-sm border border-gray-300 rounded px-2 py-1.5 bg-white text-gray-900 flex items-center gap-1 min-w-[130px]"
+          >
+            <span className="flex-1 text-left">{stageFilterLabel}</span>
+            <span className="text-xs text-gray-400">{stageDropdownOpen ? "\u25B2" : "\u25BC"}</span>
+          </button>
+          {stageDropdownOpen && (
+            <>
+              {/* Invisible overlay to close dropdown when clicking outside */}
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setStageDropdownOpen(false)}
+              />
+              <div className="absolute z-20 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[220px]">
+                <div className="flex gap-2 px-3 py-1.5 border-b border-gray-100">
+                  <button
+                    onClick={selectAllStages}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    Select all
+                  </button>
+                  <button
+                    onClick={clearAllStages}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    Clear all
+                  </button>
+                </div>
+                {stages.map((stage) => (
+                  <label
+                    key={stage}
+                    className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedStages.has(stage)}
+                      onChange={() => toggleStage(stage)}
+                      className="rounded border-gray-300"
+                    />
+                    <span className="text-sm text-gray-900">{stage}</span>
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+        {/* Multi-select rep filter */}
+        <div className="relative">
+          <button
+            onClick={() => setOwnerDropdownOpen(!ownerDropdownOpen)}
+            className="text-sm border border-gray-300 rounded px-2 py-1.5 bg-white text-gray-900 flex items-center gap-1 min-w-[130px]"
+          >
+            <span className="flex-1 text-left">{ownerFilterLabel}</span>
+            <span className="text-xs text-gray-400">{ownerDropdownOpen ? "\u25B2" : "\u25BC"}</span>
+          </button>
+          {ownerDropdownOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setOwnerDropdownOpen(false)}
+              />
+              <div className="absolute z-20 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[220px]">
+                <div className="flex gap-2 px-3 py-1.5 border-b border-gray-100">
+                  <button
+                    onClick={selectAllOwners}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    Select all
+                  </button>
+                  <button
+                    onClick={clearAllOwners}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    Clear all
+                  </button>
+                </div>
+                {owners.map((owner) => (
+                  <label
+                    key={owner}
+                    className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedOwners.has(owner)}
+                      onChange={() => toggleOwner(owner)}
+                      className="rounded border-gray-300"
+                    />
+                    <span className="text-sm text-gray-900">{owner}</span>
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
         <span className="text-xs text-gray-400 self-center">
           {filteredDeals.length} deal{filteredDeals.length !== 1 ? "s" : ""}
         </span>
