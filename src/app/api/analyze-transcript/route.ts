@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getGeminiModel, estimateTokens } from "@/lib/gemini";
-import { buildDealAnalysisPrompt } from "@/lib/prompts";
-import { calculateDealMetrics } from "@/lib/metrics";
-import type { Deal, Activity } from "@/lib/types";
-import type { TranscriptAnalysis } from "@/lib/transcript-types";
+import { buildTranscriptCoachingPrompt } from "@/lib/transcript-prompts";
+import type { Deal } from "@/lib/types";
+import type { Transcript } from "@/lib/transcript-types";
 
-// Use service-level Supabase client for API routes
+// Allow up to 60 seconds for long transcript analysis
+export const maxDuration = 60;
+
+// Service-level Supabase client for API routes
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -17,13 +19,15 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function POST(request: NextRequest) {
   try {
-    const { dealId } = await request.json();
+    const { dealId, transcriptId } = await request.json();
 
-    if (!dealId) {
-      return NextResponse.json({ error: "dealId is required" }, { status: 400 });
+    if (!dealId || !transcriptId) {
+      return NextResponse.json(
+        { error: "dealId and transcriptId are required" },
+        { status: 400 }
+      );
     }
 
-    // Check if Gemini API key is configured
     if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json(
         { error: "Gemini API key is not configured. Add GEMINI_API_KEY to your .env.local file." },
@@ -42,32 +46,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Deal not found" }, { status: 404 });
     }
 
-    // Fetch activities
-    const { data: activities, error: actError } = await supabase
-      .from("activities")
+    // Fetch the specific transcript
+    const { data: transcript, error: transcriptError } = await supabase
+      .from("transcripts")
       .select("*")
+      .eq("id", transcriptId)
       .eq("deal_id", dealId)
-      .order("activity_date", { ascending: false });
+      .single();
 
-    if (actError) {
-      return NextResponse.json({ error: actError.message }, { status: 500 });
+    if (transcriptError || !transcript) {
+      return NextResponse.json({ error: "Transcript not found" }, { status: 404 });
     }
 
-    // Fetch transcript coaching analyses (summaries only, not raw transcripts)
-    const { data: transcriptAnalyses } = await supabase
-      .from("transcript_analyses")
-      .select("*")
-      .eq("deal_id", dealId)
-      .order("analyzed_at", { ascending: false });
+    // Fetch product knowledge (most recent entry)
+    const { data: productKnowledgeData } = await supabase
+      .from("product_knowledge")
+      .select("content")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .single();
 
-    // Build prompt and estimate tokens
-    const metrics = calculateDealMetrics(deal as Deal, (activities as Activity[]) || []);
-    const prompt = buildDealAnalysisPrompt(
+    const productKnowledge = productKnowledgeData?.content || "";
+
+    // Build prompt — pass single transcript as array
+    const prompt = buildTranscriptCoachingPrompt(
       deal as Deal,
-      metrics,
-      (activities as Activity[]) || [],
-      (transcriptAnalyses as TranscriptAnalysis[]) || []
+      [transcript as Transcript],
+      productKnowledge
     );
+
     const estimatedInputTokens = estimateTokens(prompt);
 
     // Call Gemini
@@ -76,7 +83,7 @@ export async function POST(request: NextRequest) {
     const response = result.response;
     const text = response.text();
 
-    // Parse the JSON response — strip markdown code blocks if present
+    // Parse JSON response — strip markdown code blocks if present
     let cleanedText = text.trim();
     if (cleanedText.startsWith("```")) {
       cleanedText = cleanedText
@@ -84,9 +91,9 @@ export async function POST(request: NextRequest) {
         .replace(/\n?```\s*$/, "");
     }
 
-    let analysis;
+    let coaching;
     try {
-      analysis = JSON.parse(cleanedText);
+      coaching = JSON.parse(cleanedText);
     } catch {
       return NextResponse.json(
         {
@@ -97,20 +104,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Estimate output tokens
     const estimatedOutputTokens = estimateTokens(text);
 
-    // Store the analysis in Supabase
+    // Store the analysis linked to this single transcript
     const { data: saved, error: saveError } = await supabase
-      .from("analyses")
+      .from("transcript_analyses")
       .insert({
         deal_id: dealId,
-        health_assessment: analysis.health_assessment || "",
-        risk_signals: analysis.risk_signals || [],
-        positive_signals: analysis.positive_signals || [],
-        coaching_suggestions: analysis.coaching_suggestions || [],
-        ai_win_probability: analysis.ai_win_probability || 0,
-        ai_reasoning: analysis.ai_reasoning || "",
+        transcript_ids: [transcriptId],
+        sales_coaching: coaching.sales_coaching || {},
+        product_coaching: coaching.product_coaching || {},
+        overall_summary: coaching.overall_summary || "",
+        strengths: coaching.strengths || [],
+        improvements: coaching.improvements || [],
         input_tokens: estimatedInputTokens,
         output_tokens: estimatedOutputTokens,
       })

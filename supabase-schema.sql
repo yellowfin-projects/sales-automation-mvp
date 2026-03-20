@@ -117,6 +117,62 @@ create index if not exists deal_history_deal_id_idx on deal_history (deal_id);
 create index if not exists analyses_deal_id_idx on analyses (deal_id);
 
 -- ============================================
+-- TRANSCRIPTS TABLE
+-- Call transcripts paired with deals
+-- ============================================
+create table if not exists transcripts (
+  id uuid primary key default gen_random_uuid(),
+  deal_id uuid references deals(id) on delete cascade not null,
+  filename text not null,
+  transcript_text text not null,
+  speaker_labels text[] default '{}',
+  word_count integer default 0,
+  call_date date,
+  call_type text default '',
+  uploaded_at timestamptz default now()
+);
+
+create index if not exists transcripts_deal_id_idx on transcripts (deal_id);
+alter table transcripts enable row level security;
+create policy "Allow all access to transcripts" on transcripts for all using (true) with check (true);
+
+-- ============================================
+-- TRANSCRIPT ANALYSES TABLE
+-- AI coaching results from transcript analysis
+-- ============================================
+create table if not exists transcript_analyses (
+  id uuid primary key default gen_random_uuid(),
+  deal_id uuid references deals(id) on delete cascade not null,
+  transcript_ids uuid[] not null,
+  sales_coaching jsonb not null,
+  product_coaching jsonb not null,
+  overall_summary text not null,
+  strengths text[] default '{}',
+  improvements text[] default '{}',
+  input_tokens integer default 0,
+  output_tokens integer default 0,
+  analyzed_at timestamptz default now()
+);
+
+create index if not exists transcript_analyses_deal_id_idx on transcript_analyses (deal_id);
+alter table transcript_analyses enable row level security;
+create policy "Allow all access to transcript_analyses" on transcript_analyses for all using (true) with check (true);
+
+-- ============================================
+-- PRODUCT KNOWLEDGE TABLE
+-- Product brief for AI coaching context
+-- ============================================
+create table if not exists product_knowledge (
+  id uuid primary key default gen_random_uuid(),
+  title text not null default 'Product Brief',
+  content text not null default '',
+  updated_at timestamptz default now()
+);
+
+alter table product_knowledge enable row level security;
+create policy "Allow all access to product_knowledge" on product_knowledge for all using (true) with check (true);
+
+-- ============================================
 -- LEAD SYNCS TABLE
 -- Audit trail for Gmail lead report syncs
 -- ============================================

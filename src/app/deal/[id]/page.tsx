@@ -7,7 +7,10 @@ import { supabase } from "@/lib/supabase";
 import { calculateDealMetrics } from "@/lib/metrics";
 import AnalysisPanel from "@/components/AnalysisPanel";
 import DealHistoryTimeline from "@/components/DealHistoryTimeline";
+import TranscriptUploader from "@/components/TranscriptUploader";
+import TranscriptList from "@/components/TranscriptList";
 import type { Deal, Activity, Analysis, DealHistory, DealMetrics } from "@/lib/types";
+import type { Transcript, TranscriptAnalysis } from "@/lib/transcript-types";
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -71,6 +74,8 @@ export default function DealDetailPage() {
   const [metrics, setMetrics] = useState<DealMetrics | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [history, setHistory] = useState<DealHistory[]>([]);
+  const [transcripts, setTranscripts] = useState<Transcript[]>([]);
+  const [transcriptAnalyses, setTranscriptAnalyses] = useState<TranscriptAnalysis[]>([]);
   const [expandedActivity, setExpandedActivity] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,10 +119,26 @@ export default function DealDetailPage() {
         .eq("deal_id", dealId)
         .order("changed_at", { ascending: false });
 
+      // Fetch transcripts
+      const { data: transcriptsData } = await supabase
+        .from("transcripts")
+        .select("*")
+        .eq("deal_id", dealId)
+        .order("uploaded_at", { ascending: false });
+
+      // Fetch all transcript analyses (coaching history)
+      const { data: transcriptAnalysesData } = await supabase
+        .from("transcript_analyses")
+        .select("*")
+        .eq("deal_id", dealId)
+        .order("analyzed_at", { ascending: false });
+
       setDeal(dealData as Deal);
       setActivities((activitiesData as Activity[]) || []);
       setAnalysis(analysisData as Analysis | null);
       setHistory((historyData as DealHistory[]) || []);
+      setTranscripts((transcriptsData as Transcript[]) || []);
+      setTranscriptAnalyses((transcriptAnalysesData as TranscriptAnalysis[]) || []);
       setMetrics(
         calculateDealMetrics(
           dealData as Deal,
@@ -248,6 +269,26 @@ export default function DealDetailPage() {
         existingAnalysis={analysis}
         repProbability={deal.probability}
       />
+
+      {/* Call Transcripts */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h2 className="text-sm font-semibold text-gray-800 mb-4">
+          Call Transcripts{transcripts.length > 0 ? ` (${transcripts.length})` : ""}
+        </h2>
+        <TranscriptList
+          dealId={deal.id}
+          transcripts={transcripts}
+          analyses={transcriptAnalyses}
+          onDelete={(id) => setTranscripts((prev) => prev.filter((t) => t.id !== id))}
+          onNewAnalysis={loadDeal}
+        />
+        <div className="mt-4">
+          <TranscriptUploader
+            dealId={deal.id}
+            onUploadComplete={loadDeal}
+          />
+        </div>
+      </div>
 
       {/* Activity Timeline */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">

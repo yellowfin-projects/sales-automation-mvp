@@ -13,10 +13,52 @@ export default function SettingsPage() {
   const [totalInputTokens, setTotalInputTokens] = useState(0);
   const [totalOutputTokens, setTotalOutputTokens] = useState(0);
   const [expandedUploadId, setExpandedUploadId] = useState<string | null>(null);
+  const [productKnowledge, setProductKnowledge] = useState("");
+  const [productKnowledgeId, setProductKnowledgeId] = useState<string | null>(null);
+  const [pkSaving, setPkSaving] = useState(false);
+  const [pkSaved, setPkSaved] = useState(false);
 
   useEffect(() => {
     loadStats();
+    loadProductKnowledge();
   }, []);
+
+  async function loadProductKnowledge() {
+    const { data } = await supabase
+      .from("product_knowledge")
+      .select("*")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (data) {
+      setProductKnowledge(data.content || "");
+      setProductKnowledgeId(data.id);
+    }
+  }
+
+  async function saveProductKnowledge() {
+    setPkSaving(true);
+    setPkSaved(false);
+
+    if (productKnowledgeId) {
+      await supabase
+        .from("product_knowledge")
+        .update({ content: productKnowledge, updated_at: new Date().toISOString() })
+        .eq("id", productKnowledgeId);
+    } else {
+      const { data } = await supabase
+        .from("product_knowledge")
+        .insert({ title: "Product Brief", content: productKnowledge })
+        .select()
+        .single();
+      if (data) setProductKnowledgeId(data.id);
+    }
+
+    setPkSaving(false);
+    setPkSaved(true);
+    setTimeout(() => setPkSaved(false), 3000);
+  }
 
   async function loadStats() {
     // Get upload history
@@ -99,6 +141,43 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      {/* Product Knowledge */}
+      <div>
+        <h2 className="text-sm font-medium text-gray-700 mb-3">
+          Product Knowledge
+        </h2>
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <p className="text-xs text-gray-500 mb-3">
+            Write a product brief that the AI will use when coaching call transcripts.
+            Include features, differentiators, common objections, and competitive positioning.
+          </p>
+          <textarea
+            value={productKnowledge}
+            onChange={(e) => setProductKnowledge(e.target.value)}
+            rows={10}
+            className="w-full border border-gray-200 rounded px-3 py-2 text-sm font-mono leading-relaxed resize-y"
+            placeholder={"Example:\n\nYellowfin is an embedded analytics and BI platform...\n\nKey differentiators:\n- Automated analysis with AI\n- Embedded analytics for SaaS products\n- Data storytelling and collaboration\n\nCommon objections:\n- \"We already use Tableau/Power BI\"\n- \"Our team doesn't have time to learn a new tool\"\n\nCompetitors:\n- Tableau, Power BI, Looker, Qlik"}
+          />
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-xs text-gray-400">
+              {productKnowledge.split(/\s+/).filter(Boolean).length.toLocaleString()} words
+            </span>
+            <div className="flex items-center gap-3">
+              {pkSaved && (
+                <span className="text-xs text-green-600">Saved</span>
+              )}
+              <button
+                onClick={saveProductKnowledge}
+                disabled={pkSaving}
+                className="bg-blue-600 text-white px-4 py-1.5 rounded text-sm hover:bg-blue-700 disabled:opacity-50"
+              >
+                {pkSaving ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* CSV Upload */}
       <div>

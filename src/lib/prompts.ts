@@ -1,4 +1,5 @@
 import type { Deal, Activity, DealMetrics } from "./types";
+import type { TranscriptAnalysis } from "./transcript-types";
 
 /**
  * Build the analysis prompt for a deal.
@@ -7,7 +8,8 @@ import type { Deal, Activity, DealMetrics } from "./types";
 export function buildDealAnalysisPrompt(
   deal: Deal,
   metrics: DealMetrics,
-  activities: Activity[]
+  activities: Activity[],
+  transcriptAnalyses: TranscriptAnalysis[] = []
 ): string {
   // Take the 10 most recent activities to keep token usage reasonable
   const recentActivities = activities
@@ -53,7 +55,7 @@ export function buildDealAnalysisPrompt(
 
 ## Recent Activity History (most recent first)
 ${activitySummaries.join("\n\n---\n\n")}
-
+${buildTranscriptCoachingContext(transcriptAnalyses)}
 ## Instructions
 Analyze this deal and return a JSON object with exactly these fields:
 {
@@ -70,4 +72,76 @@ Be specific — reference actual activities, dates, and people from the data. Do
 Return ONLY the JSON object, no markdown formatting or code blocks.`;
 
   return prompt;
+}
+
+/**
+ * Build a compact summary of transcript coaching results for inclusion
+ * in the deal analysis prompt. Uses the AI's own coaching output (not raw
+ * transcripts) to keep token usage low even with many analyzed calls.
+ *
+ * Takes the 5 most recent coaching analyses and extracts key findings.
+ */
+function buildTranscriptCoachingContext(analyses: TranscriptAnalysis[]): string {
+  if (analyses.length === 0) return "";
+
+  // Take the 5 most recent analyses
+  const recent = analyses
+    .sort((a, b) => new Date(b.analyzed_at).getTime() - new Date(a.analyzed_at).getTime())
+    .slice(0, 5);
+
+  const summaries = recent.map((a, i) => {
+    const date = new Date(a.analyzed_at).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    const transcriptCount = a.transcript_ids?.length || 0;
+
+    const parts = [
+      `### Coaching ${i + 1} (${date}, ${transcriptCount} transcript${transcriptCount !== 1 ? "s" : ""})`,
+      `**Summary:** ${a.overall_summary}`,
+    ];
+
+    if (a.strengths?.length > 0) {
+      parts.push(`**Strengths:** ${a.strengths.join("; ")}`);
+    }
+
+    if (a.improvements?.length > 0) {
+      parts.push(`**Areas to improve:** ${a.improvements.join("; ")}`);
+    }
+
+    // Include key sales coaching findings (compact)
+    const sales = a.sales_coaching;
+    if (sales) {
+      const salesPoints: string[] = [];
+      if (sales.discovery_quality) salesPoints.push(`Discovery: ${sales.discovery_quality}`);
+      if (sales.deal_progression) salesPoints.push(`Progression: ${sales.deal_progression}`);
+      if (salesPoints.length > 0) {
+        parts.push(`**Sales notes:** ${salesPoints.join(" | ")}`);
+      }
+    }
+
+    // Include key product coaching findings (compact)
+    const product = a.product_coaching;
+    if (product) {
+      const productPoints: string[] = [];
+      if (product.product_positioning) productPoints.push(`Positioning: ${product.product_positioning}`);
+      if (product.missed_opportunities?.length > 0) {
+        productPoints.push(`Missed: ${product.missed_opportunities.join("; ")}`);
+      }
+      if (productPoints.length > 0) {
+        parts.push(`**Product notes:** ${productPoints.join(" | ")}`);
+      }
+    }
+
+    return parts.join("\n");
+  });
+
+  return `
+## Call Transcript Coaching Insights (${analyses.length} total coaching session${analyses.length !== 1 ? "s" : ""})
+The following are AI coaching summaries from analyzed call transcripts for this deal. Use these insights to inform your deal health assessment — they reveal how conversations are actually going.
+
+${summaries.join("\n\n---\n\n")}
+
+`;
 }
