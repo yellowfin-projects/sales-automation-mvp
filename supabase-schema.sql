@@ -34,6 +34,7 @@ create table if not exists uploads (
   duplicate_activities_skipped integer default 0,
   deals_created integer default 0,
   deals_updated integer default 0,
+  skipped_records jsonb default null,      -- details of duplicate activities skipped
   uploaded_by uuid references auth.users(id),
   uploaded_at timestamptz default now()
 );

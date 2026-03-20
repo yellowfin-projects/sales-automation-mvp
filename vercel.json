@@ -3,6 +3,10 @@
     {
       "path": "/api/sync-leads",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/sync-deals",
+      "schedule": "30 6 * * *"
     }
   ]
 }

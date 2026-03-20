@@ -50,6 +50,7 @@ export interface Upload {
   duplicate_activities_skipped: number;
   deals_created: number;
   deals_updated: number;
+  skipped_records: { deal: string; subject: string; date: string }[] | null;
   uploaded_by: string | null;
   uploaded_at: string;
 }
