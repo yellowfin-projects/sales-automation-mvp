@@ -245,12 +245,22 @@ async function performSync(triggerSource: "manual" | "cron"): Promise<NextRespon
       };
     });
 
-    // 6. Single batch upsert — dedup on (email, lead_week_start)
+    // 6. Deduplicate within the batch — the CSV may contain the same
+    //    (email, lead_week_start) pair more than once, which causes
+    //    PostgreSQL's ON CONFLICT to fail. Keep the last occurrence.
+    const deduped = new Map<string, (typeof leadsToUpsert)[number]>();
+    for (const lead of leadsToUpsert) {
+      const key = `${lead.email}|${lead.lead_week_start}`;
+      deduped.set(key, lead);
+    }
+    const uniqueLeads = Array.from(deduped.values());
+
+    // Single batch upsert — dedup on (email, lead_week_start)
     //    ignoreDuplicates: false → ON CONFLICT DO UPDATE
     //    This ensures status changes (e.g., "New" → "Converted") are captured
     const { data: upsertResult, error: upsertError } = await supabase
       .from("leads")
-      .upsert(leadsToUpsert, {
+      .upsert(uniqueLeads, {
         onConflict: "email,lead_week_start",
         ignoreDuplicates: false,
       })
