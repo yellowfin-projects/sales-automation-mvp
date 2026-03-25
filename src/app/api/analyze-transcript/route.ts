@@ -83,18 +83,32 @@ export async function POST(request: NextRequest) {
     const response = result.response;
     const text = response.text();
 
-    // Parse JSON response — strip markdown code blocks if present
-    let cleanedText = text.trim();
-    if (cleanedText.startsWith("```")) {
-      cleanedText = cleanedText
-        .replace(/^```(?:json)?\s*\n?/, "")
-        .replace(/\n?```\s*$/, "");
+    // Parse JSON response — Gemini sometimes wraps output in prose or markdown.
+    // Try three passes: raw → strip markdown fences → extract first {...} block.
+    let coaching;
+    const attempts = [
+      text.trim(),
+      text.trim().replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, ""),
+    ];
+
+    // Third attempt: find the outermost { ... } block in the response
+    const firstBrace = text.indexOf("{");
+    const lastBrace = text.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      attempts.push(text.slice(firstBrace, lastBrace + 1));
     }
 
-    let coaching;
-    try {
-      coaching = JSON.parse(cleanedText);
-    } catch {
+    for (const candidate of attempts) {
+      try {
+        coaching = JSON.parse(candidate);
+        break;
+      } catch {
+        // try next
+      }
+    }
+
+    if (!coaching) {
+      console.error("Gemini raw response:", text);
       return NextResponse.json(
         {
           error: "AI returned invalid JSON. Raw response stored for debugging.",
