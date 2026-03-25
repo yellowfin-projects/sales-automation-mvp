@@ -73,7 +73,7 @@ export default function TranscriptList({
     }
   }
 
-  async function handleAnalyze(transcriptId: string) {
+  async function handleAnalyze(transcriptId: string, transcriptDealId: string) {
     setConfirmAnalyzeId(null);
     setAnalyzingId(transcriptId);
     setAnalyzeError(null);
@@ -82,7 +82,7 @@ export default function TranscriptList({
       const response = await fetch("/api/analyze-transcript", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dealId, transcriptId }),
+        body: JSON.stringify({ dealId: transcriptDealId || dealId, transcriptId }),
       });
 
       const data = await response.json();
@@ -207,7 +207,7 @@ export default function TranscriptList({
                     </p>
                     <div className="flex gap-2 shrink-0 ml-3">
                       <button
-                        onClick={() => handleAnalyze(t.id)}
+                        onClick={() => handleAnalyze(t.id, t.deal_id)}
                         className="text-xs bg-purple-600 text-white px-2.5 py-1 rounded hover:bg-purple-700"
                       >
                         Confirm
