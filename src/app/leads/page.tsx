@@ -131,6 +131,13 @@ export default function LeadsPage() {
 
   useEffect(() => {
     loadLeads();
+
+    // Refetch when the user returns to this tab (e.g., after a cron sync)
+    function handleVisibility() {
+      if (document.visibilityState === "visible") loadLeads();
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, []);
 
   async function loadLeads() {
