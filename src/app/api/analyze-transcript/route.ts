@@ -83,21 +83,42 @@ export async function POST(request: NextRequest) {
     const response = result.response;
     const text = response.text();
 
-    // Parse JSON response — Gemini sometimes wraps output in prose or markdown.
-    // Try three passes: raw → strip markdown fences → extract first {...} block.
-    let coaching;
+    // Parse JSON response — Gemini sometimes wraps output in prose/markdown, and
+    // may embed literal newlines inside string values (invalid JSON). We try several
+    // strategies in sequence until one succeeds.
+
+    // Sanitize literal newlines/carriage returns inside JSON string values.
+    // Walks character-by-character so only characters inside strings are affected.
+    function sanitizeJsonString(s: string): string {
+      let inString = false;
+      let escaped = false;
+      let result = "";
+      for (const char of s) {
+        if (escaped) { result += char; escaped = false; continue; }
+        if (char === "\\" && inString) { escaped = true; result += char; continue; }
+        if (char === '"') { inString = !inString; result += char; continue; }
+        if (inString && char === "\n") { result += "\\n"; continue; }
+        if (inString && char === "\r") { result += "\\r"; continue; }
+        result += char;
+      }
+      return result;
+    }
+
+    // Extract the outermost {...} block (handles prose before/after the JSON)
+    const firstBrace = text.indexOf("{");
+    const lastBrace = text.lastIndexOf("}");
+    const extracted = firstBrace !== -1 && lastBrace > firstBrace
+      ? text.slice(firstBrace, lastBrace + 1)
+      : text;
+
     const attempts = [
       text.trim(),
       text.trim().replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, ""),
+      extracted,
+      sanitizeJsonString(extracted),
     ];
 
-    // Third attempt: find the outermost { ... } block in the response
-    const firstBrace = text.indexOf("{");
-    const lastBrace = text.lastIndexOf("}");
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-      attempts.push(text.slice(firstBrace, lastBrace + 1));
-    }
-
+    let coaching;
     for (const candidate of attempts) {
       try {
         coaching = JSON.parse(candidate);
