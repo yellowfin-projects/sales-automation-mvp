@@ -17,6 +17,7 @@ import WeeklyLeadsChart from "@/components/leads/WeeklyLeadsChart";
 import ConversionPivotTable from "@/components/leads/ConversionPivotTable";
 import MediumHeatmap from "@/components/leads/MediumHeatmap";
 import LeadSummary from "@/components/leads/LeadSummary";
+import LeadCsvUploader from "@/components/LeadCsvUploader";
 
 export default function LeadsPage() {
   const [allLeads, setAllLeads] = useState<Lead[]>([]);
@@ -24,6 +25,7 @@ export default function LeadsPage() {
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [showUploader, setShowUploader] = useState(false);
 
   // Filter state
   const [regionDropdownOpen, setRegionDropdownOpen] = useState(false);
@@ -341,6 +343,12 @@ export default function LeadsPage() {
           />
 
           <button
+            onClick={() => setShowUploader(!showUploader)}
+            className="text-sm px-4 py-1.5 rounded font-medium border border-gray-300 text-gray-700 hover:bg-gray-50"
+          >
+            {showUploader ? "Hide Upload" : "Upload CSV"}
+          </button>
+          <button
             onClick={handleSync}
             disabled={syncing}
             className={`text-sm px-4 py-1.5 rounded font-medium ${
@@ -365,6 +373,11 @@ export default function LeadsPage() {
         >
           {syncResult}
         </div>
+      )}
+
+      {/* CSV Upload panel */}
+      {showUploader && (
+        <LeadCsvUploader onUploadComplete={loadLeads} />
       )}
 
       {allLeads.length === 0 ? (

@@ -1,13 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { ImapFlow } from "imapflow";
-import { simpleParser } from "mailparser";
 import Papa from "papaparse";
 import { getWeekStart } from "@/lib/lead-metrics";
 import { createHash } from "crypto";
-
-// Extend Vercel timeout from 10s to 60s (supported on Hobby plan)
-export const maxDuration = 60;
 
 // Service-level Supabase client for API routes
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -33,12 +28,8 @@ interface LeadCsvRow {
   Medium: string;
 }
 
-// Converted status values that indicate the lead has been converted
 const CONVERTED_STATUSES = ["converted", "qualified", "closed - converted"];
 
-/**
- * Clean the medium field: blank/null → "Unknown"
- */
 function cleanMedium(raw: string | undefined): string {
   const trimmed = (raw || "").trim();
   if (!trimmed || trimmed === "-" || trimmed.toLowerCase() === "none") {
@@ -49,10 +40,7 @@ function cleanMedium(raw: string | undefined): string {
 
 /**
  * Parse the download date from "Idera Latest Download" column.
- * Expected format: "M/D/YYYY H:MM AM/PM" or "MM/DD/YYYY" or ISO.
- * Extracts only the date portion and uses UTC to avoid timezone shifts
- * that would move late-evening downloads into the next day/week.
- * Returns ISO string or null.
+ * Extracts only the date portion and uses UTC to avoid timezone shifts.
  */
 function parseDownloadDate(raw: string | undefined): string | null {
   if (!raw || !raw.trim()) return null;
@@ -73,7 +61,7 @@ function parseDownloadDate(raw: string | undefined): string | null {
     }
   }
 
-  // Try ISO or other parseable format — extract date only
+  // Try ISO format — extract date only
   const isoMatch = trimmed.match(/^\d{4}-\d{2}-\d{2}/);
   if (isoMatch) {
     const d = new Date(isoMatch[0] + "T00:00:00Z");
@@ -83,19 +71,12 @@ function parseDownloadDate(raw: string | undefined): string | null {
   return null;
 }
 
-/**
- * Generate a placeholder email for leads with blank emails.
- * Uses a hash of the row data so each unique blank-email lead gets its own placeholder.
- */
 function generatePlaceholderEmail(row: LeadCsvRow): string {
   const content = `${row["Full Name"]}|${row.Company}|${row.Phone}|${row.Country}`;
   const hash = createHash("md5").update(content).digest("hex").slice(0, 12);
   return `_no_email_${hash}`;
 }
 
-/**
- * Derive the quarter string (e.g., "2026-Q1") from a date.
- */
 function getQuarter(date: Date): string {
   const year = date.getFullYear();
   const quarter = Math.floor(date.getMonth() / 3) + 1;
@@ -103,96 +84,26 @@ function getQuarter(date: Date): string {
 }
 
 /**
- * Shared sync logic used by both the manual POST handler and the cron GET handler.
- * Connects to Gmail, finds the latest lead report, parses the CSV, and upserts into Supabase.
+ * POST — Manual CSV upload for leads.
+ * Accepts a CSV file via FormData, parses it, and upserts into Supabase.
+ * Uses the same transformation logic as the Gmail sync.
  */
-async function performSync(triggerSource: "manual" | "cron"): Promise<NextResponse> {
+export async function POST(request: NextRequest) {
   try {
-    // Validate env vars
-    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-      return NextResponse.json(
-        { error: "Gmail credentials not configured. Add GMAIL_USER and GMAIL_APP_PASSWORD to your .env.local file." },
-        { status: 400 }
-      );
+    const formData = await request.formData();
+    const file = formData.get("file") as File | null;
+
+    if (!file) {
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    if (!supabaseUrl || !supabaseKey) {
-      return NextResponse.json(
-        { error: "Supabase not configured." },
-        { status: 400 }
-      );
+    if (!file.name.endsWith(".csv")) {
+      return NextResponse.json({ error: "Please upload a CSV file" }, { status: 400 });
     }
 
-    // 1. Connect to Gmail via IMAP
-    const client = new ImapFlow({
-      host: "imap.gmail.com",
-      port: 993,
-      secure: true,
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
-      },
-      logger: false,
-    });
+    const csvText = await file.text();
 
-    await client.connect();
-
-    // 2. Search for the latest matching email
-    const lock = await client.getMailboxLock("INBOX");
-    let csvText: string | null = null;
-    let emailSubject = "";
-    let emailDate: Date | null = null;
-
-    try {
-      // Search for emails with the lead report subject
-      const messages = await client.search({
-        subject: "Report results (ESB YF SRLs - Focus Countr",
-      });
-
-      if (!messages || messages.length === 0) {
-        await client.logout();
-        return NextResponse.json(
-          { error: "No lead report email found in inbox." },
-          { status: 404 }
-        );
-      }
-
-      // Get the latest one (highest UID)
-      const latestUid = messages[messages.length - 1];
-
-      // Fetch the full message
-      const source = await client.download(String(latestUid));
-      const parsed = await simpleParser(source.content);
-
-      emailSubject = parsed.subject || "";
-      emailDate = parsed.date || null;
-
-      // Extract CSV attachment
-      if (parsed.attachments && parsed.attachments.length > 0) {
-        const csvAttachment = parsed.attachments.find(
-          (att) =>
-            att.filename?.endsWith(".csv") ||
-            att.contentType === "text/csv" ||
-            att.contentType === "application/csv"
-        );
-        if (csvAttachment) {
-          csvText = csvAttachment.content.toString("utf-8");
-        }
-      }
-    } finally {
-      lock.release();
-    }
-
-    await client.logout();
-
-    if (!csvText) {
-      return NextResponse.json(
-        { error: "No CSV attachment found in the latest lead report email." },
-        { status: 404 }
-      );
-    }
-
-    // 3. Parse CSV
+    // Parse CSV
     const parseResult = Papa.parse<LeadCsvRow>(csvText, {
       header: true,
       skipEmptyLines: true,
@@ -207,16 +118,23 @@ async function performSync(triggerSource: "manual" | "cron"): Promise<NextRespon
 
     const rows = parseResult.data;
 
-    // 4. Create sync record first
+    if (rows.length === 0) {
+      return NextResponse.json(
+        { error: "CSV file is empty or has no data rows" },
+        { status: 400 }
+      );
+    }
+
+    // Create sync record for audit trail
     const { data: syncRecord, error: syncError } = await supabase
       .from("lead_syncs")
       .insert({
-        email_subject: emailSubject,
-        email_date: emailDate?.toISOString() || null,
+        email_subject: `Manual upload: ${file.name}`,
+        email_date: new Date().toISOString(),
         rows_in_csv: rows.length,
         leads_imported: 0,
         leads_skipped: 0,
-        trigger_source: triggerSource,
+        trigger_source: "manual",
       })
       .select()
       .single();
@@ -228,7 +146,7 @@ async function performSync(triggerSource: "manual" | "cron"): Promise<NextRespon
       );
     }
 
-    // 5. Transform all rows in memory
+    // Transform rows
     const leadsToUpsert = rows.map((row) => {
       const email = (row.Email || "").trim();
       const downloadDate = parseDownloadDate(row["Idera Latest Download"]);
@@ -257,9 +175,7 @@ async function performSync(triggerSource: "manual" | "cron"): Promise<NextRespon
       };
     });
 
-    // 6. Deduplicate within the batch — the CSV may contain the same
-    //    (email, lead_week_start) pair more than once, which causes
-    //    PostgreSQL's ON CONFLICT to fail. Keep the last occurrence.
+    // Deduplicate within the batch
     const deduped = new Map<string, (typeof leadsToUpsert)[number]>();
     for (const lead of leadsToUpsert) {
       const key = `${lead.email}|${lead.lead_week_start}`;
@@ -267,9 +183,7 @@ async function performSync(triggerSource: "manual" | "cron"): Promise<NextRespon
     }
     const uniqueLeads = Array.from(deduped.values());
 
-    // Single batch upsert — dedup on (email, lead_week_start)
-    //    ignoreDuplicates: false → ON CONFLICT DO UPDATE
-    //    This ensures status changes (e.g., "New" → "Converted") are captured
+    // Upsert
     const { data: upsertResult, error: upsertError } = await supabase
       .from("leads")
       .upsert(uniqueLeads, {
@@ -286,43 +200,23 @@ async function performSync(triggerSource: "manual" | "cron"): Promise<NextRespon
     }
 
     const processed = upsertResult?.length || 0;
+    const duplicatesInFile = leadsToUpsert.length - uniqueLeads.length;
 
-    // 7. Update sync record with final counts
+    // Update sync record
     await supabase
       .from("lead_syncs")
-      .update({ leads_imported: processed, leads_skipped: rows.length - processed })
+      .update({ leads_imported: processed, leads_skipped: duplicatesInFile })
       .eq("id", syncRecord.id);
 
     return NextResponse.json({
       success: true,
-      sync_id: syncRecord.id,
+      filename: file.name,
       rows_in_csv: rows.length,
+      duplicates_in_file: duplicatesInFile,
       leads_processed: processed,
-      trigger_source: triggerSource,
-      email_subject: emailSubject,
-      email_date: emailDate?.toISOString() || null,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
-
-/**
- * POST — Manual sync triggered by the "Sync Leads" button in the UI.
- */
-export async function POST() {
-  return performSync("manual");
-}
-
-/**
- * GET — Cron sync triggered by Vercel's cron scheduler.
- * Requires CRON_SECRET for authentication.
- */
-export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  return performSync("cron");
 }
