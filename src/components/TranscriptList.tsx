@@ -9,6 +9,8 @@ interface TranscriptListProps {
   analyses: TranscriptAnalysis[];
   onDelete: (id: string) => void;
   onNewAnalysis: () => void;
+  showDealName?: boolean;
+  dealNames?: Record<string, string>;
 }
 
 /**
@@ -27,6 +29,8 @@ export default function TranscriptList({
   analyses,
   onDelete,
   onNewAnalysis,
+  showDealName = false,
+  dealNames = {},
 }: TranscriptListProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -121,6 +125,11 @@ export default function TranscriptList({
                 <span className="text-sm font-medium text-gray-900 truncate">
                   {t.filename}
                 </span>
+                {showDealName && dealNames[t.deal_id] && (
+                  <span className="shrink-0 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded truncate max-w-[160px]">
+                    {dealNames[t.deal_id]}
+                  </span>
+                )}
                 {t.call_type && (
                   <span className="shrink-0 bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs">
                     {t.call_type}
