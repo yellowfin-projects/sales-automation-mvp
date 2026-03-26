@@ -88,7 +88,8 @@ export default function TranscriptList({
       const data = await response.json();
 
       if (!response.ok) {
-        setAnalyzeError(data.error || "Analysis failed");
+        const detail = data.raw_response ? `\n\nGemini said: ${data.raw_response}` : "";
+        setAnalyzeError((data.error || "Analysis failed") + detail);
         return;
       }
 
