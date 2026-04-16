@@ -5,7 +5,6 @@ import { supabase } from "@/lib/supabase";
 import { calculateDealMetrics, calculatePipelineMetrics } from "@/lib/metrics";
 import SummaryCards from "@/components/SummaryCards";
 import DealTable from "@/components/DealTable";
-import DealsAtRisk from "@/components/DealsAtRisk";
 import DealSlideOver from "@/components/DealSlideOver";
 import type {
   Deal,
@@ -133,8 +132,6 @@ export default function PipelineOverview() {
       <h1 className="text-xl font-semibold text-gray-900">Pipeline Overview</h1>
 
       {pipelineMetrics && <SummaryCards metrics={pipelineMetrics} />}
-
-      <DealsAtRisk deals={deals} onOpenDeal={setSelectedDealId} />
 
       <div>
         <h2 className="text-lg font-semibold text-gray-900 mb-3">All Deals</h2>
