@@ -9,6 +9,7 @@ interface DealTableProps {
   deals: DealWithMetrics[];
   onOpenDeal: (dealId: string) => void;
   onDataChange?: () => void;
+  onToggleKeyDeal?: (dealId: string, newValue: boolean) => void;
 }
 
 type SortField =
@@ -80,7 +81,7 @@ function trendShort(trend: string): string {
   }
 }
 
-export default function DealTable({ deals, onOpenDeal, onDataChange }: DealTableProps) {
+export default function DealTable({ deals, onOpenDeal, onDataChange, onToggleKeyDeal }: DealTableProps) {
   const [sortField, setSortField] = useState<SortField>("days_since_last_activity");
   const [sortDir, setSortDir] = useState<SortDirection>("desc");
   const [stageDropdownOpen, setStageDropdownOpen] = useState(false);
@@ -198,12 +199,16 @@ export default function DealTable({ deals, onOpenDeal, onDataChange }: DealTable
 
   async function handleToggleKeyDeal(e: React.MouseEvent, dealId: string, current: boolean) {
     e.stopPropagation(); // don't open the slide-over
-    await fetch(`/api/deals/${dealId}`, {
+    const newValue = !current;
+    onToggleKeyDeal?.(dealId, newValue); // optimistic update — instant, no reload
+    const res = await fetch(`/api/deals/${dealId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ is_key_deal: !current }),
+      body: JSON.stringify({ is_key_deal: newValue }),
     });
-    onDataChange?.();
+    if (!res.ok) {
+      onToggleKeyDeal?.(dealId, current); // revert if API call failed
+    }
   }
 
   function SortHeader({ field, label, className = "", style }: { field: SortField; label: string; className?: string; style?: React.CSSProperties }) {

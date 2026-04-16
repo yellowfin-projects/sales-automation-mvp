@@ -127,6 +127,13 @@ export default function PipelineOverview() {
     );
   }
 
+  // Optimistic key deal toggle — updates local state instantly, no full reload
+  function handleToggleKeyDeal(dealId: string, newValue: boolean) {
+    setDeals((prev) =>
+      prev.map((d) => (d.id === dealId ? { ...d, is_key_deal: newValue } : d))
+    );
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold text-gray-900">Pipeline Overview</h1>
@@ -139,6 +146,7 @@ export default function PipelineOverview() {
           deals={deals}
           onOpenDeal={setSelectedDealId}
           onDataChange={loadData}
+          onToggleKeyDeal={handleToggleKeyDeal}
         />
       </div>
 
@@ -147,6 +155,7 @@ export default function PipelineOverview() {
           dealId={selectedDealId}
           onClose={() => setSelectedDealId(null)}
           onDataChange={loadData}
+          onToggleKeyDeal={handleToggleKeyDeal}
         />
       )}
     </div>

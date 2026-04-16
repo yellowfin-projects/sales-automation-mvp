@@ -22,7 +22,8 @@ import type { Transcript, TranscriptAnalysis } from "@/lib/transcript-types";
 interface DealSlideOverProps {
   dealId: string;
   onClose: () => void;
-  onDataChange: () => void; // called when key deal / detailed stage / checklist changes
+  onDataChange: () => void; // called when detailed stage / checklist changes
+  onToggleKeyDeal?: (dealId: string, newValue: boolean) => void;
 }
 
 function formatCurrency(value: number): string {
@@ -68,7 +69,7 @@ function activityTypeBadge(type: string): string {
   }
 }
 
-export default function DealSlideOver({ dealId, onClose, onDataChange }: DealSlideOverProps) {
+export default function DealSlideOver({ dealId, onClose, onDataChange, onToggleKeyDeal }: DealSlideOverProps) {
   const [deal, setDeal] = useState<Deal | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [metrics, setMetrics] = useState<DealMetrics | null>(null);
@@ -144,16 +145,20 @@ export default function DealSlideOver({ dealId, onClose, onDataChange }: DealSli
 
   async function toggleKeyDeal() {
     if (!deal) return;
+    const newValue = !deal.is_key_deal;
     setSavingKeyDeal(true);
+    setDeal((prev) => prev ? { ...prev, is_key_deal: newValue } : prev); // optimistic
+    onToggleKeyDeal?.(deal.id, newValue); // update table instantly
     try {
       const response = await fetch(`/api/deals/${deal.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_key_deal: !deal.is_key_deal }),
+        body: JSON.stringify({ is_key_deal: newValue }),
       });
-      if (response.ok) {
-        setDeal((prev) => prev ? { ...prev, is_key_deal: !prev.is_key_deal } : prev);
-        onDataChange();
+      if (!response.ok) {
+        // revert on failure
+        setDeal((prev) => prev ? { ...prev, is_key_deal: !newValue } : prev);
+        onToggleKeyDeal?.(deal.id, !newValue);
       }
     } finally {
       setSavingKeyDeal(false);
