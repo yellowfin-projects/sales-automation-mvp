@@ -32,12 +32,14 @@ interface AnalysisPanelProps {
   dealId: string;
   existingAnalysis: Analysis | null;
   repProbability: number;
+  onAnalysisComplete?: () => void;
 }
 
 export default function AnalysisPanel({
   dealId,
   existingAnalysis,
   repProbability,
+  onAnalysisComplete,
 }: AnalysisPanelProps) {
   const [analysis, setAnalysis] = useState<Analysis | null>(existingAnalysis);
   const [loading, setLoading] = useState(false);
@@ -64,6 +66,7 @@ export default function AnalysisPanel({
       }
 
       setAnalysis(data.analysis);
+      onAnalysisComplete?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
     } finally {

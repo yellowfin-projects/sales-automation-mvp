@@ -233,3 +233,42 @@ create index if not exists leads_sync_id_idx on leads (sync_id);
 create index if not exists leads_region_idx on leads (region);
 create index if not exists leads_week_start_idx on leads (lead_week_start);
 create index if not exists leads_quarter_idx on leads (quarter);
+
+-- ============================================
+-- MIGRATION: Detailed Stage, Key Deal Flag, Close Plan Checklist
+-- Run this block in Supabase SQL Editor to apply the new fields
+-- ============================================
+
+-- Add detailed_stage and is_key_deal to deals
+alter table deals
+  add column if not exists detailed_stage text default null,
+  add column if not exists is_key_deal boolean default false;
+
+-- Close plan checklist — one row per deal per category
+create table if not exists deal_checklist (
+  id uuid primary key default gen_random_uuid(),
+  deal_id uuid references deals(id) on delete cascade not null,
+  category text not null,
+  completed boolean default false,
+  -- source tracks who set this: 'user' = manual override, 'ai' = AI detected, 'none' = not set
+  source text default 'none',
+  ai_confidence text default '', -- 'high' | 'medium' | 'low'
+  updated_at timestamptz default now(),
+  unique(deal_id, category)
+);
+
+create index if not exists deal_checklist_deal_id_idx on deal_checklist (deal_id);
+alter table deal_checklist enable row level security;
+create policy "Allow all access to deal_checklist" on deal_checklist for all using (true) with check (true);
+
+-- Deal notes — freeform timestamped notes per deal
+create table if not exists deal_notes (
+  id uuid primary key default gen_random_uuid(),
+  deal_id uuid references deals(id) on delete cascade not null,
+  content text not null,
+  created_at timestamptz default now()
+);
+
+create index if not exists deal_notes_deal_id_idx on deal_notes (deal_id);
+alter table deal_notes enable row level security;
+create policy "Allow all access to deal_notes" on deal_notes for all using (true) with check (true);

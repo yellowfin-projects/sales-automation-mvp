@@ -121,6 +121,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: saveError.message }, { status: 500 });
     }
 
+    // Save AI-detected checklist items, but never overwrite user-set values
+    const checklistDetected: { category: string; completed: boolean; confidence: string }[] =
+      analysis.checklist_detected || [];
+
+    if (checklistDetected.length > 0) {
+      // Find categories the user has manually set — those should not be overwritten
+      const { data: userItems } = await supabase
+        .from("deal_checklist")
+        .select("category")
+        .eq("deal_id", dealId)
+        .eq("source", "user");
+
+      const userOverridden = new Set((userItems || []).map((i: { category: string }) => i.category));
+
+      const itemsToUpsert = checklistDetected
+        .filter((item) => !userOverridden.has(item.category))
+        .map((item) => ({
+          deal_id: dealId,
+          category: item.category,
+          completed: item.completed,
+          source: "ai",
+          ai_confidence: item.confidence || "",
+          updated_at: new Date().toISOString(),
+        }));
+
+      if (itemsToUpsert.length > 0) {
+        await supabase
+          .from("deal_checklist")
+          .upsert(itemsToUpsert, { onConflict: "deal_id,category" });
+      }
+    }
+
     return NextResponse.json({
       analysis: saved,
       token_usage: {

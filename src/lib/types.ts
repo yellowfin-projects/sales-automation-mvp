@@ -5,6 +5,8 @@ export interface Deal {
   opportunity_name: string;
   account_name: string;
   stage: string;
+  detailed_stage?: string | null;
+  is_key_deal?: boolean;
   amount: number;
   currency: string;
   probability: number;
@@ -14,6 +16,23 @@ export interface Deal {
   opportunity_type: string;
   region: string;
   created_at: string;
+  updated_at: string;
+}
+
+export interface DealNote {
+  id: string;
+  deal_id: string;
+  content: string;
+  created_at: string;
+}
+
+export interface DealChecklistItem {
+  id: string;
+  deal_id: string;
+  category: string;
+  completed: boolean;
+  source: "ai" | "user" | "none";
+  ai_confidence: string; // "high" | "medium" | "low" | ""
   updated_at: string;
 }
 
@@ -114,6 +133,7 @@ export interface PipelineMetrics {
 export interface DealWithMetrics extends Deal {
   metrics: DealMetrics;
   has_analysis: boolean;
+  checklist: DealChecklistItem[];
 }
 
 // Upload processing result shown to the user before confirming

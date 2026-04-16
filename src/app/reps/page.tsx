@@ -237,6 +237,7 @@ export default function RepsPage() {
           ...deal,
           metrics: calculateDealMetrics(deal, activitiesByDeal.get(deal.id) || []),
           has_analysis: analyzedDealIds.has(deal.id),
+          checklist: [],
         })
       );
 

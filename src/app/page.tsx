@@ -1,30 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { calculateDealMetrics, calculatePipelineMetrics } from "@/lib/metrics";
 import SummaryCards from "@/components/SummaryCards";
-import StageFunnel from "@/components/StageFunnel";
 import DealTable from "@/components/DealTable";
 import DealsAtRisk from "@/components/DealsAtRisk";
-import type { Deal, Activity, DealWithMetrics, PipelineMetrics } from "@/lib/types";
+import DealSlideOver from "@/components/DealSlideOver";
+import type {
+  Deal,
+  Activity,
+  DealWithMetrics,
+  PipelineMetrics,
+  DealChecklistItem,
+} from "@/lib/types";
 
 export default function PipelineOverview() {
   const [deals, setDeals] = useState<DealWithMetrics[]>([]);
   const [pipelineMetrics, setPipelineMetrics] = useState<PipelineMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // Fetch all deals
       const { data: dealsData, error: dealsError } = await supabase
         .from("deals")
         .select("*")
@@ -38,17 +40,19 @@ export default function PipelineOverview() {
         return;
       }
 
-      // Fetch all activities
       const { data: activitiesData, error: activitiesError } = await supabase
         .from("activities")
         .select("*");
 
       if (activitiesError) throw activitiesError;
 
-      // Fetch which deals have analyses
       const { data: analysesData } = await supabase
         .from("analyses")
         .select("deal_id");
+
+      const { data: checklistData } = await supabase
+        .from("deal_checklist")
+        .select("*");
 
       const analyzedDealIds = new Set(
         (analysesData || []).map((a: { deal_id: string }) => a.deal_id)
@@ -62,17 +66,20 @@ export default function PipelineOverview() {
         activitiesByDeal.set(activity.deal_id, existing);
       }
 
-      // Calculate metrics for each deal
-      const dealsWithMetrics: DealWithMetrics[] = (dealsData as Deal[]).map(
-        (deal) => ({
-          ...deal,
-          metrics: calculateDealMetrics(
-            deal,
-            activitiesByDeal.get(deal.id) || []
-          ),
-          has_analysis: analyzedDealIds.has(deal.id),
-        })
-      );
+      // Group checklist items by deal
+      const checklistByDeal = new Map<string, DealChecklistItem[]>();
+      for (const item of (checklistData as DealChecklistItem[]) || []) {
+        const existing = checklistByDeal.get(item.deal_id) || [];
+        existing.push(item);
+        checklistByDeal.set(item.deal_id, existing);
+      }
+
+      const dealsWithMetrics: DealWithMetrics[] = (dealsData as Deal[]).map((deal) => ({
+        ...deal,
+        metrics: calculateDealMetrics(deal, activitiesByDeal.get(deal.id) || []),
+        has_analysis: analyzedDealIds.has(deal.id),
+        checklist: checklistByDeal.get(deal.id) || [],
+      }));
 
       setDeals(dealsWithMetrics);
       setPipelineMetrics(calculatePipelineMetrics(dealsWithMetrics));
@@ -81,7 +88,11 @@ export default function PipelineOverview() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   if (loading) {
     return (
@@ -103,9 +114,7 @@ export default function PipelineOverview() {
   if (deals.length === 0) {
     return (
       <div className="text-center py-16">
-        <h2 className="text-lg font-medium text-gray-700 mb-2">
-          No pipeline data yet
-        </h2>
+        <h2 className="text-lg font-medium text-gray-700 mb-2">No pipeline data yet</h2>
         <p className="text-sm text-gray-500 mb-4">
           Upload a Salesforce CSV export to get started.
         </p>
@@ -125,16 +134,24 @@ export default function PipelineOverview() {
 
       {pipelineMetrics && <SummaryCards metrics={pipelineMetrics} />}
 
-      {pipelineMetrics && (
-        <StageFunnel data={pipelineMetrics.deals_by_stage} />
-      )}
-
-      <DealsAtRisk deals={deals} />
+      <DealsAtRisk deals={deals} onOpenDeal={setSelectedDealId} />
 
       <div>
         <h2 className="text-lg font-semibold text-gray-900 mb-3">All Deals</h2>
-        <DealTable deals={deals} />
+        <DealTable
+          deals={deals}
+          onOpenDeal={setSelectedDealId}
+          onDataChange={loadData}
+        />
       </div>
+
+      {selectedDealId && (
+        <DealSlideOver
+          dealId={selectedDealId}
+          onClose={() => setSelectedDealId(null)}
+          onDataChange={loadData}
+        />
+      )}
     </div>
   );
 }

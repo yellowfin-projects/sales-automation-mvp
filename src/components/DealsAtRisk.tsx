@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import type { DealWithMetrics } from "@/lib/types";
 
 const PREVIEW_COUNT = 3;
 
 interface DealsAtRiskProps {
   deals: DealWithMetrics[];
+  onOpenDeal?: (dealId: string) => void;
 }
 
 function formatCurrency(value: number): string {
@@ -31,7 +31,7 @@ function riskReasons(deal: DealWithMetrics): string[] {
 
 const CLOSED_STAGES = ["0-Closed Lost", "Closed Won", "Closed Lost"];
 
-export default function DealsAtRisk({ deals }: DealsAtRiskProps) {
+export default function DealsAtRisk({ deals, onOpenDeal }: DealsAtRiskProps) {
   const atRiskDeals = deals.filter((d) => {
     if (CLOSED_STAGES.some((s) => d.stage.toLowerCase().includes(s.toLowerCase()))) {
       return false;
@@ -74,10 +74,10 @@ export default function DealsAtRisk({ deals }: DealsAtRiskProps) {
       </div>
       <div className="space-y-2">
         {visibleDeals.map((deal) => (
-          <Link
+          <button
             key={deal.id}
-            href={`/deal/${deal.id}`}
-            className="flex items-center justify-between gap-4 bg-white border border-red-100 rounded-lg px-4 py-3 hover:border-red-300 transition-colors"
+            onClick={() => onOpenDeal?.(deal.id)}
+            className="w-full flex items-center justify-between gap-4 bg-white border border-red-100 rounded-lg px-4 py-3 hover:border-red-300 transition-colors text-left"
           >
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-gray-900 truncate">
@@ -100,7 +100,7 @@ export default function DealsAtRisk({ deals }: DealsAtRiskProps) {
                 ))}
               </div>
             </div>
-          </Link>
+          </button>
         ))}
       </div>
     </div>

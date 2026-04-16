@@ -38,8 +38,9 @@ export async function middleware(request: NextRequest) {
   // If not logged in and not already on /login, redirect to /login
   const isLoginPage = request.nextUrl.pathname === "/login";
   const isApiRoute = request.nextUrl.pathname.startsWith("/api/");
+  const isPreviewPage = request.nextUrl.pathname === "/preview";
 
-  if (!user && !isLoginPage && !isApiRoute) {
+  if (!user && !isLoginPage && !isApiRoute && !isPreviewPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

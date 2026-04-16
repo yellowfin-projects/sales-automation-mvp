@@ -1,4 +1,5 @@
 import type { Deal, Activity, DealMetrics } from "./types";
+import { CHECKLIST_CATEGORIES } from "./deal-config";
 import type { TranscriptAnalysis } from "./transcript-types";
 
 /**
@@ -64,8 +65,17 @@ Analyze this deal and return a JSON object with exactly these fields:
   "positive_signals": ["specific positive signal with evidence", "..."],
   "coaching_suggestions": ["actionable recommendation 1", "actionable recommendation 2", "actionable recommendation 3"],
   "ai_win_probability": 0.65,
-  "ai_reasoning": "1-2 sentence explanation of the win probability estimate"
+  "ai_reasoning": "1-2 sentence explanation of the win probability estimate",
+  "checklist_detected": [
+    {"category": "Discovery Complete", "completed": true, "confidence": "high"},
+    {"category": "Champion Identified", "completed": false, "confidence": "medium"}
+  ]
 }
+
+For checklist_detected, evaluate EVERY one of these 12 categories based on the activity history and deal data:
+${CHECKLIST_CATEGORIES.map((c, i) => `${i + 1}. ${c}`).join("\n")}
+
+For each category, set completed=true only if there is clear evidence in the activities or deal data. Use confidence "high" when evidence is explicit, "medium" when inferred, "low" when uncertain. Include all 12 categories in the array.
 
 Be specific — reference actual activities, dates, and people from the data. Do not be generic. If the deal is at risk, say so directly. Keep coaching suggestions actionable and prioritized.
 

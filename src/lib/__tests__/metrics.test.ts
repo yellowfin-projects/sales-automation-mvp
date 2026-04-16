@@ -234,6 +234,7 @@ describe("calculatePipelineMetrics", () => {
         ...metricOverrides,
       },
       has_analysis: false,
+      checklist: [],
     };
   }
 
