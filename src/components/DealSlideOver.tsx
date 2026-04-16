@@ -22,8 +22,10 @@ import type { Transcript, TranscriptAnalysis } from "@/lib/transcript-types";
 interface DealSlideOverProps {
   dealId: string;
   onClose: () => void;
-  onDataChange: () => void; // called when detailed stage / checklist changes
+  onDataChange: () => void; // fallback for cases that need a full refresh (e.g. AI analysis)
   onToggleKeyDeal?: (dealId: string, newValue: boolean) => void;
+  onDetailedStageChange?: (dealId: string, value: string | null) => void;
+  onChecklistChange?: (dealId: string, category: string, completed: boolean) => void;
 }
 
 function formatCurrency(value: number): string {
@@ -69,7 +71,7 @@ function activityTypeBadge(type: string): string {
   }
 }
 
-export default function DealSlideOver({ dealId, onClose, onDataChange, onToggleKeyDeal }: DealSlideOverProps) {
+export default function DealSlideOver({ dealId, onClose, onDataChange, onToggleKeyDeal, onDetailedStageChange, onChecklistChange }: DealSlideOverProps) {
   const [deal, setDeal] = useState<Deal | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [metrics, setMetrics] = useState<DealMetrics | null>(null);
@@ -167,17 +169,20 @@ export default function DealSlideOver({ dealId, onClose, onDataChange, onToggleK
 
   async function handleDetailedStageChange(value: string) {
     if (!deal) return;
+    const newValue = value === "" ? null : value;
+    const prevValue = deal.detailed_stage;
     setSavingDetailedStage(true);
+    setDeal((prev) => prev ? { ...prev, detailed_stage: newValue } : prev); // optimistic
+    onDetailedStageChange?.(deal.id, newValue); // update table instantly
     try {
-      const newValue = value === "" ? null : value;
       const response = await fetch(`/api/deals/${deal.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ detailed_stage: newValue }),
       });
-      if (response.ok) {
-        setDeal((prev) => prev ? { ...prev, detailed_stage: newValue } : prev);
-        onDataChange();
+      if (!response.ok) {
+        setDeal((prev) => prev ? { ...prev, detailed_stage: prevValue } : prev); // revert
+        onDetailedStageChange?.(deal.id, prevValue ?? null);
       }
     } finally {
       setSavingDetailedStage(false);
@@ -217,6 +222,7 @@ export default function DealSlideOver({ dealId, onClose, onDataChange, onToggleK
       body: JSON.stringify({ category, completed: newCompleted }),
     });
 
+    onChecklistChange?.(deal.id, category, newCompleted); // update table counts instantly
     if (!response.ok) {
       // Revert on failure
       setChecklist((prev) => {
@@ -228,8 +234,7 @@ export default function DealSlideOver({ dealId, onClose, onDataChange, onToggleK
         }
         return prev;
       });
-    } else {
-      onDataChange();
+      onChecklistChange?.(deal.id, category, !newCompleted); // revert table too
     }
   }
 

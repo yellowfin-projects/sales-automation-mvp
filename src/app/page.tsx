@@ -127,10 +127,41 @@ export default function PipelineOverview() {
     );
   }
 
-  // Optimistic key deal toggle — updates local state instantly, no full reload
+  // Optimistic updates — update local state instantly, no full reload
+
   function handleToggleKeyDeal(dealId: string, newValue: boolean) {
     setDeals((prev) =>
       prev.map((d) => (d.id === dealId ? { ...d, is_key_deal: newValue } : d))
+    );
+  }
+
+  function handleDetailedStageChange(dealId: string, value: string | null) {
+    setDeals((prev) =>
+      prev.map((d) => (d.id === dealId ? { ...d, detailed_stage: value } : d))
+    );
+  }
+
+  function handleChecklistChange(dealId: string, category: string, completed: boolean) {
+    setDeals((prev) =>
+      prev.map((d) => {
+        if (d.id !== dealId) return d;
+        const idx = d.checklist.findIndex((i) => i.category === category);
+        const newChecklist = [...d.checklist];
+        if (idx >= 0) {
+          newChecklist[idx] = { ...newChecklist[idx], completed };
+        } else {
+          newChecklist.push({
+            id: crypto.randomUUID(),
+            deal_id: dealId,
+            category,
+            completed,
+            source: "user",
+            ai_confidence: "",
+            updated_at: new Date().toISOString(),
+          });
+        }
+        return { ...d, checklist: newChecklist };
+      })
     );
   }
 
@@ -156,6 +187,8 @@ export default function PipelineOverview() {
           onClose={() => setSelectedDealId(null)}
           onDataChange={loadData}
           onToggleKeyDeal={handleToggleKeyDeal}
+          onDetailedStageChange={handleDetailedStageChange}
+          onChecklistChange={handleChecklistChange}
         />
       )}
     </div>
